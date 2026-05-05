@@ -77,7 +77,7 @@ export function SavingsSection() {
             if (!error && data) {
               dispatch({ 
                 type: 'UPSERT_MONTHLY_SAVINGS', 
-                savings: { ...data, date: data.date } 
+                savings: { ...data, date: data.date, memo: data.memo } 
               });
             }
           }

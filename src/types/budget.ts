@@ -36,6 +36,7 @@ export interface MonthlySavings {
   budget: number;
   actual: number;
   date?: string | null;
+  memo?: string | null;
 }
 
 export interface MonthlyDebt {
@@ -45,6 +46,7 @@ export interface MonthlyDebt {
   budget: number;
   actual: number;
   date?: string | null;
+  memo?: string | null;
 }
 
 export interface AdditionalIncome {
@@ -53,6 +55,14 @@ export interface AdditionalIncome {
   name: string;
   amount: number;
   date?: string | null;
+}
+
+export interface MonthlyInstallment {
+  id: string;
+  month: string;
+  name: string;
+  amount: number;
+  created_at?: string;
 }
 
 export interface IncomeItem {
@@ -106,6 +116,7 @@ export type ModalState =
   | { type: 'closed' }
   | { type: 'transaction'; date: string }
   | { type: 'additionalIncome' }
+  | { type: 'installment' }
   | { type: 'addIncomeItem' }
   | { type: 'addExpenseSubItem' }
   | { type: 'addSavingsItem' }
@@ -120,6 +131,7 @@ export interface BudgetState {
   monthlySavings: MonthlySavings[];
   monthlyDebts: MonthlyDebt[];
   additionalIncomes: AdditionalIncome[];
+  monthlyInstallments: MonthlyInstallment[];
   monthlySubBudgets: MonthlySubBudget[];
   incomeItems: IncomeItem[];
   expenseSubItems: ExpenseSubItem[];

@@ -15,6 +15,7 @@ const initialState: BudgetState = {
   monthlySavings: [],
   monthlyDebts: [],
   additionalIncomes: [],
+  monthlyInstallments: [],
   monthlySubBudgets: [],
   incomeItems: [],
   expenseSubItems: [],
@@ -84,6 +85,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         { data: monthlySavings },
         { data: monthlyDebts },
         { data: additionalIncomes },
+        { data: monthlyInstallments },
         { data: goals },
         { data: monthlySubBudgets },
       ] = await Promise.all([
@@ -95,6 +97,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         supabase.from('monthly_savings').select('*').eq('month', month),
         supabase.from('monthly_debts').select('*').eq('month', month),
         supabase.from('additional_incomes').select('*').eq('month', month),
+        supabase.from('monthly_installments').select('*').eq('month', month),
         supabase.from('goals').select('*').eq('month', month).limit(1),
         supabase.from('monthly_sub_budgets').select('*').eq('month', month),
       ]);
@@ -109,6 +112,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
           monthlySavings: monthlySavings ?? [],
           monthlyDebts: monthlyDebts ?? [],
           additionalIncomes: additionalIncomes ?? [],
+          monthlyInstallments: monthlyInstallments ?? [],
           monthlySubBudgets: monthlySubBudgets ?? [],
           goal,
         },

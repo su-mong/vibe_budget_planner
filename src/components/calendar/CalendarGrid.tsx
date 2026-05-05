@@ -35,6 +35,13 @@ export function CalendarGrid() {
       }
     });
 
+    // Include debts in daily expense totals
+    state.monthlyDebts.forEach((d) => {
+      if (d.date && d.date.startsWith(currentMonth) && d.actual > 0) {
+        expenseMap[d.date] = (expenseMap[d.date] || 0) + d.actual;
+      }
+    });
+
     // Monthly incomes are month-level, distribute to day 1
     const firstDate = formatDate(year, month, 1);
     const monthlyIncomeTotal = monthlyIncomes

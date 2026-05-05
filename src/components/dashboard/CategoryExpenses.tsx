@@ -8,6 +8,8 @@ import {
   getTotalExpense,
   getTotalBudget,
   getSubCategoryTotals,
+  getTotalDebtActual,
+  getTotalDebtBudget,
 } from '../../utils/calculations';
 import { formatNumber } from '../../utils/format';
 import { Category } from '../../types/budget';
@@ -22,6 +24,11 @@ export function CategoryExpenses() {
 
   const totalExpense = getTotalExpense(state.transactions, month);
   const totalBudget = getTotalBudget(state.monthlySubBudgets, month);
+  const totalDebtActual = getTotalDebtActual(state.monthlyDebts, month);
+  const totalDebtBudget = getTotalDebtBudget(state.monthlyDebts, month);
+
+  const displayTotalExpense = totalExpense + totalDebtActual;
+  const displayTotalBudget = totalBudget + totalDebtBudget;
 
   const subBudgetMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -96,25 +103,22 @@ export function CategoryExpenses() {
       </div>
 
       {/* Category Accordion Groups */}
-      {CATEGORIES.map((cat, catIdx) => {
+      {CATEGORIES.map((cat, _) => {
         const categoryActual = getCategoryTotal(state.transactions, month, cat.key);
         const categoryBudget = getCategoryBudget(state.monthlySubBudgets, state.expenseSubItems, month, cat.key);
-        const percentage = totalExpense > 0 ? (categoryActual / totalExpense) * 100 : 0;
+        const percentage = displayTotalExpense > 0 ? (categoryActual / displayTotalExpense) * 100 : 0;
         const isExpanded = expandedCategories.has(cat.key);
         const subCategories = getOrderedSubCategories(cat.key);
-        const isLast = catIdx === CATEGORIES.length - 1;
         const catInfo = CATEGORY_MAP[cat.key];
 
         return (
           <div key={cat.key}>
             {/* Category Header Row */}
             <div
-              className={`flex h-11 cursor-pointer items-center hover:bg-gray-50 ${
+              className={`flex h-11 cursor-pointer items-center hover:bg-gray-50 border-b border-[var(--border-default)] ${
                 isExpanded && subCategories.length > 0
-                  ? 'border-b border-[var(--border-default)] bg-[#F9FAFB]'
-                  : !isLast
-                    ? 'border-b border-[var(--border-default)]'
-                    : ''
+                  ? 'bg-[#F9FAFB]'
+                  : ''
               }`}
               onClick={() => toggleCategory(cat.key)}
             >
@@ -147,7 +151,7 @@ export function CategoryExpenses() {
             {isExpanded &&
               subCategories.map((sub, subIdx) => {
                 const subPercentage =
-                  totalExpense > 0 ? (sub.total / totalExpense) * 100 : 0;
+                  displayTotalExpense > 0 ? (sub.total / displayTotalExpense) * 100 : 0;
                 const isLastSub = subIdx === subCategories.length - 1;
 
                 return (
@@ -180,6 +184,28 @@ export function CategoryExpenses() {
         );
       })}
 
+      {/* Debt Payments Row */}
+      <div className="flex h-11 items-center border-b border-[var(--border-default)]">
+        <div className="flex flex-1 items-center gap-2 px-3.5">
+          <div className="h-2 w-2 rounded-full" style={{ backgroundColor: '#4B5563' }} />
+          <span className="text-[13px] font-medium text-[var(--text-primary)]">
+            부채 납부
+          </span>
+        </div>
+        <div className="w-[120px] text-center text-xs text-[var(--text-secondary)]">
+          {formatNumber(totalDebtBudget)}
+        </div>
+        <div className="w-[120px] text-center text-xs text-[var(--text-primary)]">
+          {formatNumber(totalDebtActual)}
+        </div>
+        <div
+          className="w-[70px] text-center text-xs font-bold"
+          style={{ color: '#4B5563' }}
+        >
+          {displayTotalExpense > 0 ? ((totalDebtActual / displayTotalExpense) * 100).toFixed(1) : '0.0'}%
+        </div>
+      </div>
+
       {/* Total Row */}
       <div className="flex items-center border-t border-[var(--border-default)] bg-[#F9FAFB] px-5 py-3">
         <div className="flex-1">
@@ -188,10 +214,10 @@ export function CategoryExpenses() {
           </span>
         </div>
         <div className="w-[120px] text-right text-xs font-bold text-[var(--text-secondary)]">
-          {formatNumber(totalBudget)}
+          {formatNumber(displayTotalBudget)}
         </div>
         <div className="w-[120px] text-right text-xs font-bold text-[#DC2626]">
-          {formatNumber(totalExpense)}
+          {formatNumber(displayTotalExpense)}
         </div>
         <div className="w-[70px] text-right text-xs font-bold text-[var(--text-primary)]">
           100%

@@ -4,7 +4,9 @@ import { PageHeader } from '../shared/PageHeader';
 import { MonthSelector } from '../shared/MonthSelector';
 import { CalendarGrid } from './CalendarGrid';
 import { ExpenseHistoryTable } from './ExpenseHistoryTable';
+import { InstallmentSection } from './InstallmentSection';
 import { TransactionModal } from './TransactionModal';
+import { InstallmentModal } from './InstallmentModal';
 
 export function CalendarView() {
   const { state, dispatch } = useBudget();
@@ -31,7 +33,10 @@ export function CalendarView() {
 
       <ExpenseHistoryTable />
 
+      <InstallmentSection />
+
       {state.modalState.type === 'transaction' && <TransactionModal />}
+      {state.modalState.type === 'installment' && <InstallmentModal />}
     </div>
   );
 }

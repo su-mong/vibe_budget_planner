@@ -1,6 +1,6 @@
 import type {
   BudgetState, ViewId, Transaction, MonthlyIncome,
-  MonthlySavings, MonthlyDebt, AdditionalIncome, MonthlySubBudget,
+  MonthlySavings, MonthlyDebt, AdditionalIncome, MonthlyInstallment, MonthlySubBudget,
   IncomeItem, ExpenseSubItem, SavingsItem, DebtItem, Goal, ModalState,
   EditingSection, UserSettings,
 } from '../types/budget';
@@ -28,6 +28,7 @@ export type BudgetAction =
       monthlySavings: MonthlySavings[];
       monthlyDebts: MonthlyDebt[];
       additionalIncomes: AdditionalIncome[];
+      monthlyInstallments: MonthlyInstallment[];
       monthlySubBudgets: MonthlySubBudget[];
       goal: Goal;
     }}
@@ -47,6 +48,10 @@ export type BudgetAction =
   | { type: 'ADD_ADDITIONAL_INCOME'; income: AdditionalIncome }
   | { type: 'DELETE_ADDITIONAL_INCOME'; id: string }
   | { type: 'SET_ADDITIONAL_INCOMES'; incomes: AdditionalIncome[] }
+  // Monthly Installments
+  | { type: 'ADD_INSTALLMENT'; installment: MonthlyInstallment }
+  | { type: 'DELETE_INSTALLMENT'; id: string }
+  | { type: 'SET_INSTALLMENTS'; installments: MonthlyInstallment[] }
   // Settings items
   | { type: 'SET_INCOME_ITEMS'; items: IncomeItem[] }
   | { type: 'ADD_INCOME_ITEM'; item: IncomeItem }
@@ -142,6 +147,14 @@ export function budgetReducer(state: BudgetState, action: BudgetAction): BudgetS
       return { ...state, additionalIncomes: state.additionalIncomes.filter((a) => a.id !== action.id) };
     case 'SET_ADDITIONAL_INCOMES':
       return { ...state, additionalIncomes: action.incomes };
+
+    // Monthly Installments
+    case 'ADD_INSTALLMENT':
+      return { ...state, monthlyInstallments: [...state.monthlyInstallments, action.installment] };
+    case 'DELETE_INSTALLMENT':
+      return { ...state, monthlyInstallments: state.monthlyInstallments.filter((i) => i.id !== action.id) };
+    case 'SET_INSTALLMENTS':
+      return { ...state, monthlyInstallments: action.installments };
 
     // Settings items
     case 'SET_INCOME_ITEMS':

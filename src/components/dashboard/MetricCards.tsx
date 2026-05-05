@@ -1,6 +1,6 @@
 import { TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { useBudget } from '../../hooks/useBudget';
-import { getTotalIncome, getTotalExpense, getTotalDebtActual } from '../../utils/calculations';
+import { getTotalIncome, getTotalExpense, getTotalDebtActual, getTotalSavingsActual } from '../../utils/calculations';
 import { MetricCard } from './MetricCard';
 
 export function MetricCards() {
@@ -10,7 +10,10 @@ export function MetricCards() {
   const totalIncome = getTotalIncome(state.monthlyIncomes, state.additionalIncomes, month);
   const totalExpense = getTotalExpense(state.transactions, month);
   const totalDebt = getTotalDebtActual(state.monthlyDebts, month);
-  const balance = totalIncome - totalExpense - totalDebt;
+  const totalSavings = getTotalSavingsActual(state.monthlySavings, month);
+
+  const displayedTotalExpense = totalExpense + totalDebt;
+  const balance = totalIncome - totalExpense - totalDebt - totalSavings;
 
   return (
     <div className="flex gap-5">
@@ -26,7 +29,7 @@ export function MetricCards() {
       <div className="min-w-0 flex-1">
         <MetricCard
           title="총 지출"
-          amount={totalExpense}
+          amount={displayedTotalExpense}
           icon={TrendingDown}
           iconColor="#DC2626"
           iconBgColor="#FEF2F2"

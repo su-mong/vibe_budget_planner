@@ -7,45 +7,59 @@ import { supabase } from '../../lib/supabase';
 import { Modal } from '../shared/Modal';
 import { CategoryDot } from '../shared/CategoryDot';
 
+type EntryType = 'expense' | 'savings' | 'debt';
+
 export function TransactionModal() {
   const { state, dispatch } = useBudget();
-  const { modalState, expenseSubItems } = state;
+  const { modalState, expenseSubItems, savingsItems, debtItems, currentMonth } = state;
 
   const isOpen = modalState.type === 'transaction';
   const modalDate = isOpen ? modalState.date : '';
 
+  const [entryType, setEntryType] = useState<EntryType>('expense');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('');
+  const [selectedItemId, setSelectedItemId] = useState<string>('');
   const [amount, setAmount] = useState<number>(0);
   const [mealCount, setMealCount] = useState<number>(1);
   const [memo, setMemo] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Sub-items filtered by selected category
-  const filteredSubItems = useMemo(
-    () => {
-      if (!selectedCategory) return [];
-      return expenseSubItems
-        .filter((item) => item.category === selectedCategory)
-        .sort((a, b) => {
-          if (a.name === '기타') return 1;
-          if (b.name === '기타') return -1;
-          return a.order - b.order;
-        });
-    },
-    [expenseSubItems, selectedCategory],
-  );
+  // Filtered expense sub-items
+  const filteredSubItems = useMemo(() => {
+    if (!selectedCategory) return [];
+    return expenseSubItems
+      .filter((item) => item.category === selectedCategory)
+      .sort((a, b) => {
+        if (a.name === '기타') return 1;
+        if (b.name === '기타') return -1;
+        return a.order - b.order;
+      });
+  }, [expenseSubItems, selectedCategory]);
 
-  const isValid = selectedCategory !== null && selectedSubCategory !== '' && amount > 0;
+  const isMealExpense = entryType === 'expense' && selectedCategory === Category.LIVING && selectedSubCategory === '식비';
 
-  const isMealExpense = selectedCategory === Category.LIVING && selectedSubCategory === '식비';
+  const isValid = useMemo(() => {
+    if (amount <= 0) return false;
+    if (entryType === 'expense') {
+      return selectedCategory !== null && selectedSubCategory !== '';
+    }
+    return selectedItemId !== '';
+  }, [entryType, amount, selectedCategory, selectedSubCategory, selectedItemId]);
+
+  const handleEntryTypeChange = (type: EntryType) => {
+    setEntryType(type);
+    setSelectedCategory(null);
+    setSelectedSubCategory('');
+    setSelectedItemId('');
+    setAmount(0);
+    setMealCount(1);
+    setMemo('');
+  };
 
   const handleCategoryChange = (category: Category) => {
     setSelectedCategory(category);
     setSelectedSubCategory('');
-    setAmount(0);
-    setMealCount(1);
-    setMemo('');
   };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,47 +67,73 @@ export function TransactionModal() {
     setAmount(raw === '' ? 0 : Number(raw));
   };
 
-  const handleMealCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/[^0-9]/g, '');
-    const value = raw === '' ? 1 : Math.max(1, Number(raw));
-    setMealCount(value);
-  };
-
   const handleClose = () => {
-    setSelectedCategory(null);
-    setSelectedSubCategory('');
-    setAmount(0);
-    setMealCount(1);
-    setMemo('');
+    handleEntryTypeChange('expense');
     dispatch({ type: 'SET_MODAL', modal: { type: 'closed' } });
   };
 
   const handleSubmit = async () => {
-    if (!isValid || !selectedCategory || submitting) return;
+    if (!isValid || submitting) return;
     setSubmitting(true);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          type: 'expense',
-          date: modalDate,
-          category: selectedCategory,
-          sub_category: selectedSubCategory,
-          amount,
-          meal_count: isMealExpense ? mealCount : null,
-          memo: memo.trim() || null,
-        })
-        .select()
-        .single();
+      if (entryType === 'expense') {
+        const { data, error } = await supabase
+          .from('transactions')
+          .insert({
+            user_id: user.id,
+            type: 'expense',
+            date: modalDate,
+            category: selectedCategory,
+            sub_category: selectedSubCategory,
+            amount,
+            meal_count: isMealExpense ? mealCount : null,
+            memo: memo.trim() || null,
+          })
+          .select()
+          .single();
 
-      if (error) throw error;
+        if (error) throw error;
+        dispatch({ type: 'ADD_TRANSACTION', transaction: data });
+      } else if (entryType === 'savings') {
+        const { data, error } = await supabase
+          .from('monthly_savings')
+          .insert({
+            user_id: user.id,
+            month: currentMonth,
+            item_id: selectedItemId,
+            budget: 0,
+            actual: amount,
+            date: modalDate,
+            memo: memo.trim() || null,
+          })
+          .select()
+          .single();
 
-      dispatch({ type: 'ADD_TRANSACTION', transaction: data });
+        if (error) throw error;
+        dispatch({ type: 'UPSERT_MONTHLY_SAVINGS', savings: { ...data, date: data.date } });
+      } else if (entryType === 'debt') {
+        const { data, error } = await supabase
+          .from('monthly_debts')
+          .insert({
+            user_id: user.id,
+            month: currentMonth,
+            item_id: selectedItemId,
+            budget: 0,
+            actual: amount,
+            date: modalDate,
+            memo: memo.trim() || null,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        dispatch({ type: 'UPSERT_MONTHLY_DEBT', debt: { ...data, date: data.date } });
+      }
+
       handleClose();
     } catch (err) {
       console.error('Failed to add transaction:', err);
@@ -103,42 +143,86 @@ export function TransactionModal() {
   };
 
   return (
-    <Modal open={isOpen} onClose={handleClose} title="지출 입력">
+    <Modal open={isOpen} onClose={handleClose} title="거래 입력">
       <div className="space-y-5">
-        {/* Step 1 - Main category selection */}
+        {/* Step 1 - Entry Type Selection */}
         <div>
-          <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">항목 선택</h3>
+          <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">유형 선택</h3>
           <div className="grid grid-cols-3 gap-2">
-            {CATEGORIES.map((cat) => (
+            {(['expense', 'savings', 'debt'] as const).map((type) => (
               <button
-                key={cat.key}
-                onClick={() => handleCategoryChange(cat.key)}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                  selectedCategory === cat.key
+                key={type}
+                onClick={() => handleEntryTypeChange(type)}
+                className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+                  entryType === type
                     ? 'border-[var(--accent-blue)] bg-amber-50 font-medium text-[var(--accent-blue)]'
                     : 'border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--bg-muted)]'
                 }`}
               >
-                <CategoryDot category={cat.key} />
-                {cat.label}
+                {type === 'expense' ? '지출' : type === 'savings' ? '저축' : '부채'}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Step 2 - Sub-category selection */}
-        {selectedCategory && (
+        {/* Step 2 - Item Selection based on type */}
+        {entryType === 'expense' ? (
+          <>
+            <div>
+              <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">항목 선택</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.key}
+                    onClick={() => handleCategoryChange(cat.key)}
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                      selectedCategory === cat.key
+                        ? 'border-[var(--accent-blue)] bg-amber-50 font-medium text-[var(--accent-blue)]'
+                        : 'border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--bg-muted)]'
+                    }`}
+                  >
+                    <CategoryDot category={cat.key} />
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {selectedCategory && (
+              <div>
+                <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
+                  세부 항목 선택
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {filteredSubItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setSelectedSubCategory(item.name)}
+                      className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                        selectedSubCategory === item.name
+                          ? 'border-[var(--accent-blue)] bg-amber-50 font-medium text-[var(--accent-blue)]'
+                          : 'border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--bg-muted)]'
+                      }`}
+                    >
+                      {item.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
           <div>
             <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
-              세부 항목 선택
+              {entryType === 'savings' ? '저축 항목 선택' : '부채 항목 선택'}
             </h3>
             <div className="flex flex-wrap gap-2">
-              {filteredSubItems.map((item) => (
+              {(entryType === 'savings' ? savingsItems : debtItems).map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setSelectedSubCategory(item.name)}
+                  onClick={() => setSelectedItemId(item.id)}
                   className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                    selectedSubCategory === item.name
+                    selectedItemId === item.id
                       ? 'border-[var(--accent-blue)] bg-amber-50 font-medium text-[var(--accent-blue)]'
                       : 'border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--bg-muted)]'
                   }`}
@@ -151,9 +235,12 @@ export function TransactionModal() {
         )}
 
         {/* Step 3 - Amount input */}
-        {selectedCategory && selectedSubCategory && (
+        {((entryType === 'expense' && selectedCategory && selectedSubCategory) || 
+          (entryType !== 'expense' && selectedItemId)) && (
           <div>
-            <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">가격 입력</h3>
+            <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
+              {entryType === 'expense' ? '가격 입력' : entryType === 'savings' ? '저축액 입력' : '납부액 입력'}
+            </h3>
             <div className="relative">
               <input
                 type="text"
@@ -179,7 +266,7 @@ export function TransactionModal() {
                 type="text"
                 inputMode="numeric"
                 value={mealCount}
-                onChange={handleMealCountChange}
+                onChange={(e) => setMealCount(Number(e.target.value.replace(/[^0-9]/g, '')) || 1)}
                 placeholder="1"
                 className="w-full rounded-lg border border-[var(--border-default)] px-3 py-2 pr-8 text-sm text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--accent-blue)]"
               />
@@ -191,7 +278,8 @@ export function TransactionModal() {
         )}
 
         {/* Step 5 - Memo input */}
-        {selectedCategory && selectedSubCategory && (
+        {((entryType === 'expense' && selectedCategory && selectedSubCategory) || 
+          (entryType !== 'expense' && selectedItemId)) && (
           <div>
             <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">메모 입력</h3>
             <textarea

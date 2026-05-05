@@ -75,7 +75,7 @@ export function DebtSection() {
             if (!error && data) {
               dispatch({ 
                 type: 'UPSERT_MONTHLY_DEBT', 
-                debt: { ...data, date: data.date } 
+                debt: { ...data, date: data.date, memo: data.memo } 
               });
             }
           }
