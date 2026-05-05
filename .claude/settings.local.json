@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(du:*)",
+      "Bash(node:*)",
+      "Bash(npm --version:*)",
+      "Bash(textutil:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx supabase:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm install:*)",
+      "Bash(curl -s -X PATCH \"https://api.supabase.com/v1/projects/nyrrzixqsyiuxuiaomri/config/auth\" -H \"Authorization: Bearer sbp_4df9100b4795ddf15adad16464c30097dfb0e06e\" -H \"Content-Type: application/json\" -d '{\n    \"\"EXTERNAL_GOOGLE_ENABLED\"\": true,\n    \"\"EXTERNAL_GOOGLE_CLIENT_ID\"\": \"\"832494088735-mpplm6pvl1mus3hsefdv02qakm3k8rt0.apps.googleusercontent.com\"\",\n    \"\"EXTERNAL_GOOGLE_SECRET\"\": \"\"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\"\",\n    \"\"EXTERNAL_GOOGLE_REDIRECT_URI\"\": \"\"https://nyrrzixqsyiuxuiaomri.supabase.co/auth/v1/callback\"\"\n  }')",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(ls:*)",
+      "Bash(tree:*)",
+      "Bash(npx vite build:*)",
+      "Bash(find:*)"
+    ]
+  }
+}
