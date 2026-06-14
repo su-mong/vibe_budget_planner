@@ -59,13 +59,8 @@ async function handleKakaoLogin() {
 
 async function handleNaverLogin() {
   await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: window.location.origin,
-      queryParams: {
-        provider: 'naver',
-      },
-    },
+    provider: 'naver' as any,
+    options: { redirectTo: window.location.origin },
   });
 }
 

@@ -7,7 +7,14 @@ import { supabase } from '../../lib/supabase';
 import { Modal } from '../shared/Modal';
 import { CategoryDot } from '../shared/CategoryDot';
 
-type EntryType = 'expense' | 'savings' | 'debt';
+type EntryType = 'expense' | 'savings' | 'debt' | 'exercise';
+
+const ENTRY_TYPE_OPTIONS: { type: EntryType; label: string }[] = [
+  { type: 'expense', label: '지출' },
+  { type: 'savings', label: '저축' },
+  { type: 'debt', label: '부채' },
+  { type: 'exercise', label: '운동' },
+];
 
 export function TransactionModal() {
   const { state, dispatch } = useBudget();
@@ -23,6 +30,9 @@ export function TransactionModal() {
   const [amount, setAmount] = useState<number>(0);
   const [mealCount, setMealCount] = useState<number>(1);
   const [memo, setMemo] = useState<string>('');
+  const [runningCompleted, setRunningCompleted] = useState(false);
+  const [shouldRecordWeight, setShouldRecordWeight] = useState(false);
+  const [bodyWeight, setBodyWeight] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Filtered expense sub-items
@@ -38,14 +48,29 @@ export function TransactionModal() {
   }, [expenseSubItems, selectedCategory]);
 
   const isMealExpense = entryType === 'expense' && selectedCategory === Category.LIVING && selectedSubCategory === '식비';
+  const parsedBodyWeight = Number(bodyWeight);
+  const hasValidBodyWeight =
+    bodyWeight.trim() !== '' && Number.isFinite(parsedBodyWeight) && parsedBodyWeight > 0;
 
   const isValid = useMemo(() => {
+    if (entryType === 'exercise') {
+      return !shouldRecordWeight || hasValidBodyWeight;
+    }
+
     if (amount <= 0) return false;
     if (entryType === 'expense') {
       return selectedCategory !== null && selectedSubCategory !== '';
     }
     return selectedItemId !== '';
-  }, [entryType, amount, selectedCategory, selectedSubCategory, selectedItemId]);
+  }, [
+    entryType,
+    shouldRecordWeight,
+    hasValidBodyWeight,
+    amount,
+    selectedCategory,
+    selectedSubCategory,
+    selectedItemId,
+  ]);
 
   const handleEntryTypeChange = (type: EntryType) => {
     setEntryType(type);
@@ -55,6 +80,9 @@ export function TransactionModal() {
     setAmount(0);
     setMealCount(1);
     setMemo('');
+    setRunningCompleted(false);
+    setShouldRecordWeight(false);
+    setBodyWeight('');
   };
 
   const handleCategoryChange = (category: Category) => {
@@ -65,6 +93,19 @@ export function TransactionModal() {
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '');
     setAmount(raw === '' ? 0 : Number(raw));
+  };
+
+  const handleBodyWeightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/[^0-9.]/g, '');
+    const [integerPart, ...decimalParts] = raw.split('.');
+    setBodyWeight(decimalParts.length > 0 ? `${integerPart}.${decimalParts.join('')}` : integerPart);
+  };
+
+  const handleWeightRecordChange = (checked: boolean) => {
+    setShouldRecordWeight(checked);
+    if (!checked) {
+      setBodyWeight('');
+    }
   };
 
   const handleClose = () => {
@@ -132,6 +173,38 @@ export function TransactionModal() {
 
         if (error) throw error;
         dispatch({ type: 'UPSERT_MONTHLY_DEBT', debt: { ...data, date: data.date } });
+      } else if (entryType === 'exercise') {
+        const { data, error: exerciseError } = await supabase
+          .from('exercise_records')
+          .upsert(
+            {
+              user_id: user.id,
+              date: modalDate,
+              running_completed: runningCompleted,
+              memo: memo.trim() || null,
+            },
+            { onConflict: 'user_id,date' }
+          )
+          .select()
+          .single();
+
+        if (exerciseError) throw exerciseError;
+        dispatch({ type: 'UPSERT_EXERCISE_RECORD', record: data });
+
+        if (shouldRecordWeight) {
+          const { error: bodyWeightError } = await supabase
+            .from('body_weight_records')
+            .upsert(
+              {
+                user_id: user.id,
+                date: modalDate,
+                weight_kg: parsedBodyWeight,
+              },
+              { onConflict: 'user_id,date' }
+            );
+
+          if (bodyWeightError) throw bodyWeightError;
+        }
       }
 
       handleClose();
@@ -143,13 +216,13 @@ export function TransactionModal() {
   };
 
   return (
-    <Modal open={isOpen} onClose={handleClose} title="거래 입력">
+    <Modal open={isOpen} onClose={handleClose} title="거래/운동 기록">
       <div className="space-y-5">
         {/* Step 1 - Entry Type Selection */}
         <div>
           <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">유형 선택</h3>
-          <div className="grid grid-cols-3 gap-2">
-            {(['expense', 'savings', 'debt'] as const).map((type) => (
+          <div className="grid grid-cols-4 gap-2">
+            {ENTRY_TYPE_OPTIONS.map(({ type, label }) => (
               <button
                 key={type}
                 onClick={() => handleEntryTypeChange(type)}
@@ -159,7 +232,7 @@ export function TransactionModal() {
                     : 'border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--bg-muted)]'
                 }`}
               >
-                {type === 'expense' ? '지출' : type === 'savings' ? '저축' : '부채'}
+                {label}
               </button>
             ))}
           </div>
@@ -211,7 +284,7 @@ export function TransactionModal() {
               </div>
             )}
           </>
-        ) : (
+        ) : entryType === 'savings' || entryType === 'debt' ? (
           <div>
             <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
               {entryType === 'savings' ? '저축 항목 선택' : '부채 항목 선택'}
@@ -230,6 +303,59 @@ export function TransactionModal() {
                   {item.name}
                 </button>
               ))}
+            </div>
+          </div>
+        ) : entryType === 'exercise' ? (
+          <div>
+            <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">세부 항목</h3>
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
+                <input
+                  type="checkbox"
+                  checked={runningCompleted}
+                  onChange={(e) => setRunningCompleted(e.target.checked)}
+                  className="h-4 w-4 rounded border-[var(--border-default)] text-[var(--accent-blue)] focus:ring-[var(--accent-blue)]"
+                />
+                러닝 완료
+              </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
+                <input
+                  type="checkbox"
+                  checked={shouldRecordWeight}
+                  onChange={(e) => handleWeightRecordChange(e.target.checked)}
+                  className="h-4 w-4 rounded border-[var(--border-default)] text-[var(--accent-blue)] focus:ring-[var(--accent-blue)]"
+                />
+                몸무게 기록
+              </label>
+              <div>
+                <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">메모</h3>
+                <input
+                  type="text"
+                  value={memo}
+                  onChange={(e) => setMemo(e.target.value)}
+                  placeholder="메모를 입력하세요 (선택 사항)"
+                  className="w-full rounded-lg border border-[var(--border-default)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--accent-blue)]"
+                />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {entryType === 'exercise' && shouldRecordWeight && (
+          <div>
+            <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">몸무게 입력</h3>
+            <div className="relative">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={bodyWeight}
+                onChange={handleBodyWeightChange}
+                placeholder="몸무게를 입력하세요"
+                className="w-full rounded-lg border border-[var(--border-default)] px-3 py-2 pr-8 text-sm text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--accent-blue)]"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[var(--text-tertiary)]">
+                kg
+              </span>
             </div>
           </div>
         )}

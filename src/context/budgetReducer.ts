@@ -2,7 +2,7 @@ import type {
   BudgetState, ViewId, Transaction, MonthlyIncome,
   MonthlySavings, MonthlyDebt, AdditionalIncome, MonthlyInstallment, MonthlySubBudget,
   IncomeItem, ExpenseSubItem, SavingsItem, DebtItem, Goal, ModalState,
-  EditingSection, UserSettings,
+  EditingSection, UserSettings, ExerciseRecord,
 } from '../types/budget';
 
 export type BudgetAction =
@@ -24,6 +24,7 @@ export type BudgetAction =
     }}
   | { type: 'LOAD_MONTHLY_DATA'; payload: {
       transactions: Transaction[];
+      exerciseRecords: ExerciseRecord[];
       monthlyIncomes: MonthlyIncome[];
       monthlySavings: MonthlySavings[];
       monthlyDebts: MonthlyDebt[];
@@ -35,6 +36,8 @@ export type BudgetAction =
   // Transactions
   | { type: 'ADD_TRANSACTION'; transaction: Transaction }
   | { type: 'DELETE_TRANSACTION'; id: string }
+  // Exercise Records
+  | { type: 'UPSERT_EXERCISE_RECORD'; record: ExerciseRecord }
   // Monthly Incomes
   | { type: 'SET_MONTHLY_INCOMES'; incomes: MonthlyIncome[] }
   | { type: 'UPSERT_MONTHLY_INCOME'; income: MonthlyIncome }
@@ -100,6 +103,17 @@ export function budgetReducer(state: BudgetState, action: BudgetAction): BudgetS
       return { ...state, transactions: [...state.transactions, action.transaction] };
     case 'DELETE_TRANSACTION':
       return { ...state, transactions: state.transactions.filter((t) => t.id !== action.id) };
+
+    // Exercise Records
+    case 'UPSERT_EXERCISE_RECORD': {
+      const idx = state.exerciseRecords.findIndex((record) => record.id === action.record.id);
+      if (idx >= 0) {
+        const updated = [...state.exerciseRecords];
+        updated[idx] = action.record;
+        return { ...state, exerciseRecords: updated };
+      }
+      return { ...state, exerciseRecords: [...state.exerciseRecords, action.record] };
+    }
 
     // Monthly Incomes
     case 'SET_MONTHLY_INCOMES':

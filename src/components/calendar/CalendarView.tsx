@@ -21,7 +21,7 @@ export function CalendarView() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="거래 내역">
+      <PageHeader title="기록">
         <MonthSelector
           month={state.currentMonth}
           onPrev={handlePrevMonth}

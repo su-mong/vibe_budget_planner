@@ -10,6 +10,9 @@ interface CalendarCellProps {
   isCardPaymentDay: boolean;
   income: number;
   expense: number;
+  exerciseRecord?: {
+    running_completed: boolean;
+  };
 }
 
 export function CalendarCell({
@@ -20,8 +23,12 @@ export function CalendarCell({
   isCardPaymentDay,
   income,
   expense,
+  exerciseRecord,
 }: CalendarCellProps) {
   const { dispatch } = useBudget();
+  const today = new Date();
+  const todayDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const isToday = date === todayDate;
 
   const handleCellClick = () => {
     dispatch({ type: 'SET_SELECTED_DATE', date });
@@ -37,7 +44,7 @@ export function CalendarCell({
       onClick={handleCellClick}
       className={`relative min-h-[80px] cursor-pointer border border-[var(--border-light)] p-1.5 transition-colors ${
         isSelected ? 'rounded border-2 border-[var(--accent-blue)] bg-[#FEF3C7]' : ''
-      } ${!isCurrentMonth ? 'bg-[var(--bg-muted)]' : isCardPaymentDay ? 'bg-orange-50' : !isSelected ? 'bg-white' : ''}`}
+      } ${!isCurrentMonth ? 'bg-[var(--bg-muted)]' : isSelected ? '' : isToday ? 'bg-lime-100' : isCardPaymentDay ? 'bg-orange-50' : 'bg-white'}`}
     >
       {/* Day number */}
       <span
@@ -62,6 +69,13 @@ export function CalendarCell({
           <p className="truncate text-[11px] leading-tight text-red-500">
             -{formatNumber(expense)}
           </p>
+        )}
+        {exerciseRecord && (
+          <span className="inline-flex max-w-full items-center rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-blue-800">
+            <span className="truncate">
+              {exerciseRecord.running_completed ? '🏃‍➡️ 오운완' : '오운완'}
+            </span>
+          </span>
         )}
       </div>
 
