@@ -8,7 +8,14 @@ const DAY_HEADERS = ['일', '월', '화', '수', '목', '금', '토'];
 
 export function CalendarGrid() {
   const { state } = useBudget();
-  const { currentMonth, selectedDate, transactions, monthlyIncomes, additionalIncomes } = state;
+  const {
+    currentMonth,
+    selectedDate,
+    transactions,
+    exerciseRecords,
+    monthlyIncomes,
+    additionalIncomes,
+  } = state;
 
   const [year, month] = currentMonth.split('-').map(Number);
   const daysInMonth = getDaysInMonth(currentMonth);
@@ -57,6 +64,14 @@ export function CalendarGrid() {
 
     return { expenseMap, incomeMap };
   }, [transactions, monthlyIncomes, additionalIncomes, currentMonth, year, month]);
+
+  const exerciseRecordMap = useMemo(() => {
+    return new Map(
+      exerciseRecords
+        .filter((record) => record.date.startsWith(currentMonth))
+        .map((record) => [record.date, record])
+    );
+  }, [exerciseRecords, currentMonth]);
 
   // Build grid cells
   const totalCells = firstDay + daysInMonth;
@@ -126,6 +141,7 @@ export function CalendarGrid() {
             isCardPaymentDay={cell.isCurrentMonth && state.userSettings.card_payment_day === cell.day}
             income={dailyTotals.incomeMap[cell.date] || 0}
             expense={dailyTotals.expenseMap[cell.date] || 0}
+            exerciseRecord={exerciseRecordMap.get(cell.date)}
           />
         ))}
       </div>

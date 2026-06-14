@@ -3,6 +3,7 @@ import { getPrevMonth, getNextMonth } from '../../utils/format';
 import { PageHeader } from '../shared/PageHeader';
 import { MonthSelector } from '../shared/MonthSelector';
 import { GoalSection } from './GoalSection';
+import { ExerciseSummaryCard } from './ExerciseSummaryCard';
 import { MetricCards } from './MetricCards';
 import { BalanceSheet } from './BalanceSheet';
 import { CategoryExpenses } from './CategoryExpenses';
@@ -40,6 +41,8 @@ export function DashboardView() {
           <CategoryExpenses />
         </div>
       </div>
+
+      <ExerciseSummaryCard />
     </div>
   );
 }

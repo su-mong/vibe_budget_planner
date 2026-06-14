@@ -11,7 +11,7 @@ interface SidebarProps {
 
 const NAV_ITEMS: { icon: typeof LayoutDashboard; label: string; view: ViewId }[] = [
   { icon: LayoutDashboard, label: '대시보드', view: 'dashboard' },
-  { icon: Calendar, label: '거래 내역', view: 'calendar' },
+  { icon: Calendar, label: '기록', view: 'calendar' },
   { icon: PiggyBank, label: '예산 관리', view: 'budget' },
   { icon: Settings, label: '설정', view: 'settings' },
 ];

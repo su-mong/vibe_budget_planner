@@ -11,6 +11,7 @@ const initialState: BudgetState = {
   currentMonth: getCurrentMonth(),
   selectedDate: null,
   transactions: [],
+  exerciseRecords: [],
   monthlyIncomes: [],
   monthlySavings: [],
   monthlyDebts: [],
@@ -81,6 +82,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
 
       const [
         { data: transactions },
+        { data: exerciseRecords },
         { data: monthlyIncomes },
         { data: monthlySavings },
         { data: monthlyDebts },
@@ -90,6 +92,10 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         { data: monthlySubBudgets },
       ] = await Promise.all([
         supabase.from('transactions').select('*')
+          .gte('date', startDate)
+          .lte('date', endDate)
+          .order('date', { ascending: false }),
+        supabase.from('exercise_records').select('*')
           .gte('date', startDate)
           .lte('date', endDate)
           .order('date', { ascending: false }),
@@ -108,6 +114,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         type: 'LOAD_MONTHLY_DATA',
         payload: {
           transactions: transactions ?? [],
+          exerciseRecords: exerciseRecords ?? [],
           monthlyIncomes: monthlyIncomes ?? [],
           monthlySavings: monthlySavings ?? [],
           monthlyDebts: monthlyDebts ?? [],

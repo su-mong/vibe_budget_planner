@@ -21,6 +21,14 @@ export interface Transaction {
   created_at: string;
 }
 
+export interface ExerciseRecord {
+  id: string;
+  date: string;
+  running_completed: boolean;
+  memo?: string | null;
+  created_at?: string;
+}
+
 export interface MonthlyIncome {
   id: string;
   month: string;
@@ -127,6 +135,7 @@ export interface BudgetState {
   currentMonth: string;
   selectedDate: string | null;
   transactions: Transaction[];
+  exerciseRecords: ExerciseRecord[];
   monthlyIncomes: MonthlyIncome[];
   monthlySavings: MonthlySavings[];
   monthlyDebts: MonthlyDebt[];
