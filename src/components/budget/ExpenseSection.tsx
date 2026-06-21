@@ -42,6 +42,7 @@ export function ExpenseSection() {
       if (!map[item.budget_item_id]) map[item.budget_item_id] = [];
       map[item.budget_item_id].push(item.name);
     }
+
     for (const budgetItemId in map) {
       map[budgetItemId].sort((a, b) => {
         if (a === '기타') return 1;
@@ -49,6 +50,7 @@ export function ExpenseSection() {
         return a.localeCompare(b, 'ko');
       });
     }
+
     return map;
   }, [state.transactionItems]);
 
@@ -207,6 +209,9 @@ export function ExpenseSection() {
                 ? (editValues[item.id] || 0)
                 : (monthlyBudgetMap[item.id] || 0);
               const transactionNames = transactionNamesByBudgetItem[item.id] ?? [];
+              const shouldShowTransactionNames = !(
+                transactionNames.length === 1 && transactionNames[0] === item.name
+              );
 
               return (
                 <div
@@ -220,7 +225,7 @@ export function ExpenseSection() {
                 >
                   <div className="flex flex-1 flex-col justify-center gap-0.5 pl-[38px] pr-3.5">
                     <span className="text-xs text-[var(--text-secondary)]">{item.name}</span>
-                    {transactionNames.length > 0 && (
+                    {transactionNames.length > 0 && shouldShowTransactionNames && (
                       <span className="text-[10px] text-[var(--text-tertiary)]">
                         거래 항목: {transactionNames.join(', ')}
                       </span>
