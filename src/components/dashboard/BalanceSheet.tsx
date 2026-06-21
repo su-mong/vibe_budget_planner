@@ -2,10 +2,13 @@ import { UtensilsCrossed } from 'lucide-react';
 import { useBudget } from '../../hooks/useBudget';
 import { Category } from '../../types/budget';
 import {
+  getCategoryActualByBudgetItems,
+  getCategoryBudgetByBudgetItems,
   getCategoryBudget,
   getCategoryTotal,
   getMealCostTotal,
   getMealCount,
+  getTotalBudgetByBudgetItems,
   getTotalBudget,
   getTotalExpense,
   getTotalIncome,
@@ -27,12 +30,30 @@ export function BalanceSheet() {
   const incomeActual = getTotalIncome(state.monthlyIncomes, state.additionalIncomes, month);
 
   // Expenses
-  const expenseBudget = getTotalBudget(state.monthlySubBudgets, month);
+  const hasBudgetItemData = state.budgetItems.length > 0 || state.monthlyBudgetItems.length > 0;
+  const expenseBudget = hasBudgetItemData
+    ? getTotalBudgetByBudgetItems(state.monthlyBudgetItems, month)
+    : getTotalBudget(state.monthlySubBudgets, month);
   const expenseActual = getTotalExpense(state.transactions, month);
 
   // Fixed vs Variable
-  const fixedBudget = getCategoryBudget(state.monthlySubBudgets, state.expenseSubItems, month, Category.FIXED);
-  const fixedActual = getCategoryTotal(state.transactions, month, Category.FIXED);
+  const fixedBudget = hasBudgetItemData
+    ? getCategoryBudgetByBudgetItems(
+      state.monthlyBudgetItems,
+      state.budgetItems,
+      month,
+      Category.FIXED,
+    )
+    : getCategoryBudget(state.monthlySubBudgets, state.expenseSubItems, month, Category.FIXED);
+  const fixedActual = hasBudgetItemData
+    ? getCategoryActualByBudgetItems(
+      state.transactions,
+      state.transactionItems,
+      state.budgetItems,
+      month,
+      Category.FIXED,
+    )
+    : getCategoryTotal(state.transactions, month, Category.FIXED);
   const variableBudget = expenseBudget - fixedBudget;
   const variableActual = expenseActual - fixedActual;
 
@@ -47,8 +68,8 @@ export function BalanceSheet() {
   const balanceActual = incomeActual - expenseActual - savingsActual - debtActual;
 
   // Meal cost
-  const mealTotal = getMealCostTotal(state.transactions, month);
-  const mealCount = getMealCount(state.transactions, month);
+  const mealTotal = getMealCostTotal(state.transactions, month, state.transactionItems);
+  const mealCount = getMealCount(state.transactions, month, state.transactionItems);
   const avgMealCost = mealCount > 0 ? Math.round(mealTotal / mealCount) : 0;
 
   function formatSigned(value: number): string {

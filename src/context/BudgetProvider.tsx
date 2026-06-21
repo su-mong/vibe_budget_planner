@@ -18,8 +18,11 @@ const initialState: BudgetState = {
   additionalIncomes: [],
   monthlyInstallments: [],
   monthlySubBudgets: [],
+  monthlyBudgetItems: [],
   incomeItems: [],
   expenseSubItems: [],
+  budgetItems: [],
+  transactionItems: [],
   savingsItems: [],
   debtItems: [],
   goal: { id: '', month: '', title: '', content: '', order: 0 },
@@ -41,12 +44,16 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       const [
         { data: incomeItems },
         { data: expenseSubItems },
+        { data: budgetItems },
+        { data: transactionItems },
         { data: savingsItems },
         { data: debtItems },
         { data: userSettings },
       ] = await Promise.all([
         supabase.from('income_items').select('*').order('order'),
         supabase.from('expense_sub_items').select('*').order('order'),
+        supabase.from('budget_items').select('*').order('category').order('order'),
+        supabase.from('transaction_items').select('*').order('category').order('order'),
         supabase.from('savings_items').select('*').order('order'),
         supabase.from('debt_items').select('*').order('order'),
         supabase.from('user_settings').select('*').limit(1),
@@ -59,6 +66,8 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         payload: {
           incomeItems: incomeItems ?? [],
           expenseSubItems: expenseSubItems ?? [],
+          budgetItems: budgetItems ?? [],
+          transactionItems: transactionItems ?? [],
           savingsItems: savingsItems ?? [],
           debtItems: debtItems ?? [],
           userSettings: { 
@@ -90,6 +99,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         { data: monthlyInstallments },
         { data: goals },
         { data: monthlySubBudgets },
+        { data: monthlyBudgetItems },
       ] = await Promise.all([
         supabase.from('transactions').select('*')
           .gte('date', startDate)
@@ -106,6 +116,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         supabase.from('monthly_installments').select('*').eq('month', month),
         supabase.from('goals').select('*').eq('month', month).limit(1),
         supabase.from('monthly_sub_budgets').select('*').eq('month', month),
+        supabase.from('monthly_budget_items').select('*').eq('month', month),
       ]);
 
       const goal = goals?.[0] ?? { id: '', month, title: '', content: '', order: 0 };
@@ -121,6 +132,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
           additionalIncomes: additionalIncomes ?? [],
           monthlyInstallments: monthlyInstallments ?? [],
           monthlySubBudgets: monthlySubBudgets ?? [],
+          monthlyBudgetItems: monthlyBudgetItems ?? [],
           goal,
         },
       });

@@ -1,7 +1,8 @@
 import type {
   BudgetState, ViewId, Transaction, MonthlyIncome,
   MonthlySavings, MonthlyDebt, AdditionalIncome, MonthlyInstallment, MonthlySubBudget,
-  IncomeItem, ExpenseSubItem, SavingsItem, DebtItem, Goal, ModalState,
+  MonthlyBudgetItem, IncomeItem, ExpenseSubItem, BudgetItem, TransactionItem,
+  SavingsItem, DebtItem, Goal, ModalState,
   EditingSection, UserSettings, ExerciseRecord,
 } from '../types/budget';
 
@@ -18,6 +19,8 @@ export type BudgetAction =
   | { type: 'LOAD_SETTINGS'; payload: {
       incomeItems: IncomeItem[];
       expenseSubItems: ExpenseSubItem[];
+      budgetItems: BudgetItem[];
+      transactionItems: TransactionItem[];
       savingsItems: SavingsItem[];
       debtItems: DebtItem[];
       userSettings: UserSettings;
@@ -31,6 +34,7 @@ export type BudgetAction =
       additionalIncomes: AdditionalIncome[];
       monthlyInstallments: MonthlyInstallment[];
       monthlySubBudgets: MonthlySubBudget[];
+      monthlyBudgetItems: MonthlyBudgetItem[];
       goal: Goal;
     }}
   // Transactions
@@ -62,6 +66,14 @@ export type BudgetAction =
   | { type: 'SET_EXPENSE_SUB_ITEMS'; items: ExpenseSubItem[] }
   | { type: 'ADD_EXPENSE_SUB_ITEM'; item: ExpenseSubItem }
   | { type: 'DELETE_EXPENSE_SUB_ITEM'; id: string }
+  | { type: 'SET_BUDGET_ITEMS'; items: BudgetItem[] }
+  | { type: 'ADD_BUDGET_ITEM'; item: BudgetItem }
+  | { type: 'UPDATE_BUDGET_ITEM'; item: BudgetItem }
+  | { type: 'DELETE_BUDGET_ITEM'; id: string }
+  | { type: 'SET_TRANSACTION_ITEMS'; items: TransactionItem[] }
+  | { type: 'ADD_TRANSACTION_ITEM'; item: TransactionItem }
+  | { type: 'UPDATE_TRANSACTION_ITEM'; item: TransactionItem }
+  | { type: 'DELETE_TRANSACTION_ITEM'; id: string }
   | { type: 'SET_SAVINGS_ITEMS'; items: SavingsItem[] }
   | { type: 'ADD_SAVINGS_ITEM'; item: SavingsItem }
   | { type: 'DELETE_SAVINGS_ITEM'; id: string }
@@ -70,6 +82,8 @@ export type BudgetAction =
   | { type: 'DELETE_DEBT_ITEM'; id: string }
   // Monthly Sub-Budgets
   | { type: 'SET_MONTHLY_SUB_BUDGETS'; month: string; subBudgets: MonthlySubBudget[] }
+  // Monthly Budget Items
+  | { type: 'SET_MONTHLY_BUDGET_ITEMS'; month: string; budgetItems: MonthlyBudgetItem[] }
   // Goal
   | { type: 'SET_GOAL'; goal: Goal }
   // User settings
@@ -183,6 +197,39 @@ export function budgetReducer(state: BudgetState, action: BudgetAction): BudgetS
       return { ...state, expenseSubItems: [...state.expenseSubItems, action.item] };
     case 'DELETE_EXPENSE_SUB_ITEM':
       return { ...state, expenseSubItems: state.expenseSubItems.filter((i) => i.id !== action.id) };
+    case 'SET_BUDGET_ITEMS':
+      return { ...state, budgetItems: action.items };
+    case 'ADD_BUDGET_ITEM':
+      return { ...state, budgetItems: [...state.budgetItems, action.item] };
+    case 'UPDATE_BUDGET_ITEM': {
+      const idx = state.budgetItems.findIndex((item) => item.id === action.item.id);
+      if (idx >= 0) {
+        const updated = [...state.budgetItems];
+        updated[idx] = action.item;
+        return { ...state, budgetItems: updated };
+      }
+      return { ...state, budgetItems: [...state.budgetItems, action.item] };
+    }
+    case 'DELETE_BUDGET_ITEM':
+      return { ...state, budgetItems: state.budgetItems.filter((item) => item.id !== action.id) };
+    case 'SET_TRANSACTION_ITEMS':
+      return { ...state, transactionItems: action.items };
+    case 'ADD_TRANSACTION_ITEM':
+      return { ...state, transactionItems: [...state.transactionItems, action.item] };
+    case 'UPDATE_TRANSACTION_ITEM': {
+      const idx = state.transactionItems.findIndex((item) => item.id === action.item.id);
+      if (idx >= 0) {
+        const updated = [...state.transactionItems];
+        updated[idx] = action.item;
+        return { ...state, transactionItems: updated };
+      }
+      return { ...state, transactionItems: [...state.transactionItems, action.item] };
+    }
+    case 'DELETE_TRANSACTION_ITEM':
+      return {
+        ...state,
+        transactionItems: state.transactionItems.filter((item) => item.id !== action.id),
+      };
     case 'SET_SAVINGS_ITEMS':
       return { ...state, savingsItems: action.items };
     case 'ADD_SAVINGS_ITEM':
@@ -200,6 +247,10 @@ export function budgetReducer(state: BudgetState, action: BudgetAction): BudgetS
     case 'SET_MONTHLY_SUB_BUDGETS': {
       const others = state.monthlySubBudgets.filter((sb) => sb.month !== action.month);
       return { ...state, monthlySubBudgets: [...others, ...action.subBudgets] };
+    }
+    case 'SET_MONTHLY_BUDGET_ITEMS': {
+      const others = state.monthlyBudgetItems.filter((item) => item.month !== action.month);
+      return { ...state, monthlyBudgetItems: [...others, ...action.budgetItems] };
     }
 
     // Goal
