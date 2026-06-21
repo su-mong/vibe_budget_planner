@@ -3,9 +3,13 @@ import { ChevronRight, ChevronDown } from 'lucide-react';
 import { useBudget } from '../../hooks/useBudget';
 import { CATEGORIES, CATEGORY_MAP } from '../../constants/categories';
 import {
+  getCategoryActualByTransactionItems,
   getCategoryTotal,
   getCategoryBudget,
+  getTransactionCategoryBudget,
+  getTransactionItemExpenseSummaries,
   getTotalExpense,
+  getTotalBudgetByBudgetItems,
   getTotalBudget,
   getSubCategoryTotals,
   getTotalDebtActual,
@@ -23,7 +27,11 @@ export function CategoryExpenses() {
   );
 
   const totalExpense = getTotalExpense(state.transactions, month);
-  const totalBudget = getTotalBudget(state.monthlySubBudgets, month);
+  const hasBudgetItemData = state.budgetItems.length > 0 || state.monthlyBudgetItems.length > 0;
+  const hasTransactionItemData = state.transactionItems.length > 0;
+  const totalBudget = hasBudgetItemData
+    ? getTotalBudgetByBudgetItems(state.monthlyBudgetItems, month)
+    : getTotalBudget(state.monthlySubBudgets, month);
   const totalDebtActual = getTotalDebtActual(state.monthlyDebts, month);
   const totalDebtBudget = getTotalDebtBudget(state.monthlyDebts, month);
 
@@ -38,7 +46,22 @@ export function CategoryExpenses() {
     return map;
   }, [state.monthlySubBudgets, month]);
 
-  function getOrderedSubCategories(category: Category) {
+  function getOrderedSubCategories(category: Category): {
+    id: string;
+    name: string;
+    total: number;
+    budget: number;
+  }[] {
+    if (hasTransactionItemData) {
+      return getTransactionItemExpenseSummaries(
+        state.transactions,
+        state.transactionItems,
+        state.monthlyBudgetItems,
+        month,
+        category,
+      );
+    }
+
     const totalsMap = getSubCategoryTotals(state.transactions, month, category);
     const subItems = state.expenseSubItems
       .filter((si) => si.category === category)
@@ -47,20 +70,20 @@ export function CategoryExpenses() {
         if (b.name === '기타') return -1;
         return a.order - b.order;
       });
-    const result: { name: string; total: number; budget: number }[] = [];
+    const result: { id: string; name: string; total: number; budget: number }[] = [];
     const seen = new Set<string>();
 
     for (const si of subItems) {
       const total = totalsMap.get(si.name) || 0;
       const budget = subBudgetMap[si.id] || 0;
       if (total > 0 || budget > 0) {
-        result.push({ name: si.name, total, budget });
+        result.push({ id: si.id, name: si.name, total, budget });
         seen.add(si.name);
       }
     }
     for (const [name, total] of totalsMap.entries()) {
       if (!seen.has(name) && total > 0) {
-        result.push({ name, total, budget: 0 });
+        result.push({ id: `${category}:${name}`, name, total, budget: 0 });
       }
     }
     return result;
@@ -104,8 +127,22 @@ export function CategoryExpenses() {
 
       {/* Category Accordion Groups */}
       {CATEGORIES.map((cat, _) => {
-        const categoryActual = getCategoryTotal(state.transactions, month, cat.key);
-        const categoryBudget = getCategoryBudget(state.monthlySubBudgets, state.expenseSubItems, month, cat.key);
+        const categoryActual = hasTransactionItemData
+          ? getCategoryActualByTransactionItems(
+            state.transactions,
+            state.transactionItems,
+            month,
+            cat.key,
+          )
+          : getCategoryTotal(state.transactions, month, cat.key);
+        const categoryBudget = hasTransactionItemData
+          ? getTransactionCategoryBudget(
+            state.transactionItems,
+            state.monthlyBudgetItems,
+            month,
+            cat.key,
+          )
+          : getCategoryBudget(state.monthlySubBudgets, state.expenseSubItems, month, cat.key);
         const percentage = displayTotalExpense > 0 ? (categoryActual / displayTotalExpense) * 100 : 0;
         const isExpanded = expandedCategories.has(cat.key);
         const subCategories = getOrderedSubCategories(cat.key);
@@ -156,7 +193,7 @@ export function CategoryExpenses() {
 
                 return (
                   <div
-                    key={sub.name}
+                    key={sub.id}
                     className={`flex h-10 items-center border-b ${
                       isLastSub
                         ? 'border-[var(--border-default)]'

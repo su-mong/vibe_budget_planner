@@ -13,6 +13,7 @@ export interface Transaction {
   id: string;
   date: string;
   type: 'expense';
+  transaction_item_id?: string | null;
   category: Category;
   sub_category: string;
   amount: number;
@@ -86,6 +87,22 @@ export interface ExpenseSubItem {
   order: number;
 }
 
+export interface BudgetItem {
+  id: string;
+  category: Category;
+  name: string;
+  order: number;
+}
+
+export interface TransactionItem {
+  id: string;
+  budget_item_id: string;
+  category: Category;
+  name: string;
+  order: number;
+  is_active: boolean;
+}
+
 export interface SavingsItem {
   id: string;
   name: string;
@@ -102,6 +119,13 @@ export interface MonthlySubBudget {
   id: string;
   month: string;
   sub_item_id: string;
+  amount: number;
+}
+
+export interface MonthlyBudgetItem {
+  id: string;
+  month: string;
+  budget_item_id: string;
   amount: number;
 }
 
@@ -127,6 +151,8 @@ export type ModalState =
   | { type: 'installment' }
   | { type: 'addIncomeItem' }
   | { type: 'addExpenseSubItem' }
+  | { type: 'addBudgetItem' }
+  | { type: 'addTransactionItem' }
   | { type: 'addSavingsItem' }
   | { type: 'addDebtItem' };
 
@@ -142,8 +168,11 @@ export interface BudgetState {
   additionalIncomes: AdditionalIncome[];
   monthlyInstallments: MonthlyInstallment[];
   monthlySubBudgets: MonthlySubBudget[];
+  monthlyBudgetItems: MonthlyBudgetItem[];
   incomeItems: IncomeItem[];
   expenseSubItems: ExpenseSubItem[];
+  budgetItems: BudgetItem[];
+  transactionItems: TransactionItem[];
   savingsItems: SavingsItem[];
   debtItems: DebtItem[];
   goal: Goal;

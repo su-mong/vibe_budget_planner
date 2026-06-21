@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useBudget } from '../../hooks/useBudget';
-import { Category } from '../../types/budget';
+import type { Category } from '../../types/budget';
 import { CATEGORIES } from '../../constants/categories';
 import { formatNumber } from '../../utils/format';
 import { supabase } from '../../lib/supabase';
@@ -18,14 +18,14 @@ const ENTRY_TYPE_OPTIONS: { type: EntryType; label: string }[] = [
 
 export function TransactionModal() {
   const { state, dispatch } = useBudget();
-  const { modalState, expenseSubItems, savingsItems, debtItems, currentMonth } = state;
+  const { modalState, transactionItems, savingsItems, debtItems, currentMonth } = state;
 
   const isOpen = modalState.type === 'transaction';
   const modalDate = isOpen ? modalState.date : '';
 
   const [entryType, setEntryType] = useState<EntryType>('expense');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [selectedSubCategory, setSelectedSubCategory] = useState<string>('');
+  const [selectedTransactionItemId, setSelectedTransactionItemId] = useState<string>('');
   const [selectedItemId, setSelectedItemId] = useState<string>('');
   const [amount, setAmount] = useState<number>(0);
   const [mealCount, setMealCount] = useState<number>(1);
@@ -35,19 +35,23 @@ export function TransactionModal() {
   const [bodyWeight, setBodyWeight] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Filtered expense sub-items
-  const filteredSubItems = useMemo(() => {
+  const filteredTransactionItems = useMemo(() => {
     if (!selectedCategory) return [];
-    return expenseSubItems
-      .filter((item) => item.category === selectedCategory)
+    return transactionItems
+      .filter((item) => item.category === selectedCategory && item.is_active)
       .sort((a, b) => {
         if (a.name === '기타') return 1;
         if (b.name === '기타') return -1;
         return a.order - b.order;
       });
-  }, [expenseSubItems, selectedCategory]);
+  }, [transactionItems, selectedCategory]);
 
-  const isMealExpense = entryType === 'expense' && selectedCategory === Category.LIVING && selectedSubCategory === '식비';
+  const selectedTransactionItem = useMemo(
+    () => transactionItems.find((item) => item.id === selectedTransactionItemId) ?? null,
+    [transactionItems, selectedTransactionItemId],
+  );
+
+  const isMealExpense = entryType === 'expense' && selectedTransactionItem?.name === '식비';
   const parsedBodyWeight = Number(bodyWeight);
   const hasValidBodyWeight =
     bodyWeight.trim() !== '' && Number.isFinite(parsedBodyWeight) && parsedBodyWeight > 0;
@@ -59,7 +63,7 @@ export function TransactionModal() {
 
     if (amount <= 0) return false;
     if (entryType === 'expense') {
-      return selectedCategory !== null && selectedSubCategory !== '';
+      return selectedCategory !== null && selectedTransactionItem !== null;
     }
     return selectedItemId !== '';
   }, [
@@ -68,14 +72,14 @@ export function TransactionModal() {
     hasValidBodyWeight,
     amount,
     selectedCategory,
-    selectedSubCategory,
+    selectedTransactionItem,
     selectedItemId,
   ]);
 
   const handleEntryTypeChange = (type: EntryType) => {
     setEntryType(type);
     setSelectedCategory(null);
-    setSelectedSubCategory('');
+    setSelectedTransactionItemId('');
     setSelectedItemId('');
     setAmount(0);
     setMealCount(1);
@@ -87,7 +91,7 @@ export function TransactionModal() {
 
   const handleCategoryChange = (category: Category) => {
     setSelectedCategory(category);
-    setSelectedSubCategory('');
+    setSelectedTransactionItemId('');
   };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,14 +126,17 @@ export function TransactionModal() {
       if (!user) return;
 
       if (entryType === 'expense') {
+        if (!selectedTransactionItem) return;
+
         const { data, error } = await supabase
           .from('transactions')
           .insert({
             user_id: user.id,
             type: 'expense',
             date: modalDate,
-            category: selectedCategory,
-            sub_category: selectedSubCategory,
+            transaction_item_id: selectedTransactionItem.id,
+            category: selectedTransactionItem.category,
+            sub_category: selectedTransactionItem.name,
             amount,
             meal_count: isMealExpense ? mealCount : null,
             memo: memo.trim() || null,
@@ -267,12 +274,12 @@ export function TransactionModal() {
                   세부 항목 선택
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {filteredSubItems.map((item) => (
+                  {filteredTransactionItems.map((item) => (
                     <button
                       key={item.id}
-                      onClick={() => setSelectedSubCategory(item.name)}
+                      onClick={() => setSelectedTransactionItemId(item.id)}
                       className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                        selectedSubCategory === item.name
+                        selectedTransactionItemId === item.id
                           ? 'border-[var(--accent-blue)] bg-amber-50 font-medium text-[var(--accent-blue)]'
                           : 'border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--bg-muted)]'
                       }`}
@@ -361,7 +368,7 @@ export function TransactionModal() {
         )}
 
         {/* Step 3 - Amount input */}
-        {((entryType === 'expense' && selectedCategory && selectedSubCategory) || 
+        {((entryType === 'expense' && selectedCategory && selectedTransactionItem) || 
           (entryType !== 'expense' && selectedItemId)) && (
           <div>
             <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
@@ -404,7 +411,7 @@ export function TransactionModal() {
         )}
 
         {/* Step 5 - Memo input */}
-        {((entryType === 'expense' && selectedCategory && selectedSubCategory) || 
+        {((entryType === 'expense' && selectedCategory && selectedTransactionItem) || 
           (entryType !== 'expense' && selectedItemId)) && (
           <div>
             <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">메모 입력</h3>

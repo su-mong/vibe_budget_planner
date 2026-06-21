@@ -5,20 +5,18 @@ import { supabase } from '../../lib/supabase';
 import { formatNumber } from '../../utils/format';
 import { CATEGORIES } from '../../constants/categories';
 import { Category } from '../../types/budget';
-import type { ExpenseSubItem } from '../../types/budget';
+import type { BudgetItem } from '../../types/budget';
 
 export function ExpenseSection() {
   const { state, dispatch } = useBudget();
   const isEditing = state.editingSection === 'expense';
 
-  // Sub-items grouped by category
-  const subItemsByCategory = useMemo(() => {
-    const map: Partial<Record<Category, ExpenseSubItem[]>> = {};
-    for (const si of state.expenseSubItems) {
-      if (!map[si.category as Category]) map[si.category as Category] = [];
-      map[si.category as Category]!.push(si);
+  const budgetItemsByCategory = useMemo(() => {
+    const map: Partial<Record<Category, BudgetItem[]>> = {};
+    for (const item of state.budgetItems) {
+      if (!map[item.category]) map[item.category] = [];
+      map[item.category]!.push(item);
     }
-    // Sort items within each category, keeping '기타' last
     for (const cat in map) {
       const category = cat as Category;
       map[category] = map[category]!.sort((a, b) => {
@@ -28,28 +26,43 @@ export function ExpenseSection() {
       });
     }
     return map;
-  }, [state.expenseSubItems]);
+  }, [state.budgetItems]);
 
-  // Sub-budget amounts indexed by sub_item_id
-  const subBudgetMap = useMemo(() => {
+  const monthlyBudgetMap = useMemo(() => {
     const map: Record<string, number> = {};
-    state.monthlySubBudgets
-      .filter((sb) => sb.month === state.currentMonth)
-      .forEach((sb) => { map[sb.sub_item_id] = sb.amount; });
+    state.monthlyBudgetItems
+      .filter((item) => item.month === state.currentMonth)
+      .forEach((item) => { map[item.budget_item_id] = item.amount; });
     return map;
-  }, [state.monthlySubBudgets, state.currentMonth]);
+  }, [state.monthlyBudgetItems, state.currentMonth]);
+
+  const transactionNamesByBudgetItem = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const item of state.transactionItems) {
+      if (!map[item.budget_item_id]) map[item.budget_item_id] = [];
+      map[item.budget_item_id].push(item.name);
+    }
+    for (const budgetItemId in map) {
+      map[budgetItemId].sort((a, b) => {
+        if (a === '기타') return 1;
+        if (b === '기타') return -1;
+        return a.localeCompare(b, 'ko');
+      });
+    }
+    return map;
+  }, [state.transactionItems]);
 
   // Accordion open state
   const [expandedCategories, setExpandedCategories] = useState<Set<Category>>(new Set());
 
-  // Edit mode local state: sub_item_id -> amount
+  // Edit mode local state: budget_item_id -> amount
   const [editValues, setEditValues] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (isEditing) {
-      setEditValues({ ...subBudgetMap });
+      setEditValues({ ...monthlyBudgetMap });
     }
-  }, [isEditing]);
+  }, [isEditing, monthlyBudgetMap]);
 
   const toggleCategory = (key: Category) => {
     setExpandedCategories((prev) => {
@@ -60,11 +73,10 @@ export function ExpenseSection() {
     });
   };
 
-  // Calculate category total from sub-items
   const getCategoryTotal = (catKey: Category): number => {
-    const items = subItemsByCategory[catKey] ?? [];
-    const source = isEditing ? editValues : subBudgetMap;
-    return items.reduce((sum, si) => sum + (source[si.id] || 0), 0);
+    const items = budgetItemsByCategory[catKey] ?? [];
+    const source = isEditing ? editValues : monthlyBudgetMap;
+    return items.reduce((sum, item) => sum + (source[item.id] || 0), 0);
   };
 
   const grandTotal = CATEGORIES.reduce(
@@ -76,24 +88,24 @@ export function ExpenseSection() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const subBudgetRows = state.expenseSubItems.map((si) => ({
+    const budgetRows = state.budgetItems.map((item) => ({
       user_id: user.id,
       month: state.currentMonth,
-      sub_item_id: si.id,
-      amount: editValues[si.id] || 0,
+      budget_item_id: item.id,
+      amount: editValues[item.id] || 0,
     }));
 
-    if (subBudgetRows.length > 0) {
-      const { data: savedSubs } = await supabase
-        .from('monthly_sub_budgets')
-        .upsert(subBudgetRows, { onConflict: 'user_id,month,sub_item_id' })
+    if (budgetRows.length > 0) {
+      const { data: savedBudgets } = await supabase
+        .from('monthly_budget_items')
+        .upsert(budgetRows, { onConflict: 'user_id,month,budget_item_id' })
         .select();
 
-      if (savedSubs) {
+      if (savedBudgets) {
         dispatch({
-          type: 'SET_MONTHLY_SUB_BUDGETS',
+          type: 'SET_MONTHLY_BUDGET_ITEMS',
           month: state.currentMonth,
-          subBudgets: savedSubs,
+          budgetItems: savedBudgets,
         });
       }
     }
@@ -138,9 +150,9 @@ export function ExpenseSection() {
 
       {/* Category Rows */}
       {CATEGORIES.map((cat, catIdx) => {
-        const subItems = subItemsByCategory[cat.key] ?? [];
+        const budgetItems = budgetItemsByCategory[cat.key] ?? [];
         const isExpanded = expandedCategories.has(cat.key);
-        const hasSubItems = subItems.length > 0;
+        const hasBudgetItems = budgetItems.length > 0;
         const catTotal = getCategoryTotal(cat.key);
         const isLast = catIdx === CATEGORIES.length - 1;
 
@@ -148,10 +160,10 @@ export function ExpenseSection() {
           <div key={cat.key} className={!isLast ? 'border-b border-[var(--border-default)]' : ''}>
             {/* Category Main Row */}
             <button
-              onClick={() => hasSubItems && toggleCategory(cat.key)}
+              onClick={() => hasBudgetItems && toggleCategory(cat.key)}
               className={`flex h-11 w-full items-center ${
                 isExpanded ? 'bg-[#F9FAFB]' : ''
-              } ${!hasSubItems ? 'cursor-default' : 'cursor-pointer'}`}
+              } ${!hasBudgetItems ? 'cursor-default' : 'cursor-pointer'}`}
             >
               <div className="flex flex-1 items-center gap-2 px-3.5">
                 <div
@@ -161,7 +173,7 @@ export function ExpenseSection() {
                 <span className="text-[13px] font-medium text-[var(--text-primary)]">
                   {cat.label}
                 </span>
-                {hasSubItems && (
+                {hasBudgetItems && (
                   isExpanded
                     ? <ChevronDown size={14} className="text-[var(--text-secondary)]" />
                     : <ChevronRight size={14} className="text-[var(--text-secondary)]" />
@@ -188,25 +200,31 @@ export function ExpenseSection() {
               </div>
             </button>
 
-            {/* Sub-Item Rows */}
-            {isExpanded && subItems.map((si, siIdx) => {
-              const isLastSub = siIdx === subItems.length - 1;
-              const subAmount = isEditing
-                ? (editValues[si.id] || 0)
-                : (subBudgetMap[si.id] || 0);
+            {/* Budget Item Rows */}
+            {isExpanded && budgetItems.map((item, itemIdx) => {
+              const isLastBudgetItem = itemIdx === budgetItems.length - 1;
+              const itemAmount = isEditing
+                ? (editValues[item.id] || 0)
+                : (monthlyBudgetMap[item.id] || 0);
+              const transactionNames = transactionNamesByBudgetItem[item.id] ?? [];
 
               return (
                 <div
-                  key={si.id}
-                  className="flex h-10 items-center"
+                  key={item.id}
+                  className="flex min-h-10 items-center py-1.5"
                   style={{
-                    borderBottom: isLastSub
+                    borderBottom: isLastBudgetItem
                       ? '1px solid var(--border-default)'
                       : '1px solid var(--border-light)',
                   }}
                 >
-                  <div className="flex flex-1 items-center pl-[38px] pr-3.5">
-                    <span className="text-xs text-[var(--text-secondary)]">{si.name}</span>
+                  <div className="flex flex-1 flex-col justify-center gap-0.5 pl-[38px] pr-3.5">
+                    <span className="text-xs text-[var(--text-secondary)]">{item.name}</span>
+                    {transactionNames.length > 0 && (
+                      <span className="text-[10px] text-[var(--text-tertiary)]">
+                        거래 항목: {transactionNames.join(', ')}
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex h-full w-[300px] items-center justify-end pr-5">
@@ -217,11 +235,11 @@ export function ExpenseSection() {
                         <span className="text-xs text-[var(--text-tertiary)]">₩</span>
                         <input
                           type="number"
-                          value={subAmount || ''}
+                          value={itemAmount || ''}
                           onChange={(e) =>
                             setEditValues((prev) => ({
                               ...prev,
-                              [si.id]: Number(e.target.value) || 0,
+                              [item.id]: Number(e.target.value) || 0,
                             }))
                           }
                           className="w-full bg-transparent text-right text-xs text-[var(--text-primary)] outline-none"
@@ -230,7 +248,7 @@ export function ExpenseSection() {
                       </div>
                     ) : (
                       <span className="text-[11px] text-[var(--text-secondary)]">
-                        {formatNumber(subAmount)}
+                        {formatNumber(itemAmount)}
                       </span>
                     )}
                   </div>
