@@ -5,6 +5,7 @@ import { MonthSelector } from '../shared/MonthSelector';
 import { CalendarGrid } from './CalendarGrid';
 import { ExpenseHistoryTable } from './ExpenseHistoryTable';
 import { InstallmentSection } from './InstallmentSection';
+import { LargeExpenseRecordSection } from './LargeExpenseRecordSection';
 import { TransactionModal } from './TransactionModal';
 import { InstallmentModal } from './InstallmentModal';
 
@@ -34,6 +35,8 @@ export function CalendarView() {
       <ExpenseHistoryTable />
 
       <InstallmentSection />
+
+      <LargeExpenseRecordSection />
 
       {state.modalState.type === 'transaction' && <TransactionModal />}
       {state.modalState.type === 'installment' && <InstallmentModal />}
