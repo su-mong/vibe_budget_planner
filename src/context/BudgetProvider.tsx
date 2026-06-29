@@ -17,6 +17,10 @@ const initialState: BudgetState = {
   monthlyDebts: [],
   additionalIncomes: [],
   monthlyInstallments: [],
+  largeExpenses: [],
+  largeExpenseSubItems: [],
+  largeExpenseTransactionLinks: [],
+  largeExpenseLinkedTransactions: [],
   monthlySubBudgets: [],
   monthlyBudgetItems: [],
   incomeItems: [],
@@ -48,6 +52,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         { data: transactionItems },
         { data: savingsItems },
         { data: debtItems },
+        { data: largeExpenses },
         { data: userSettings },
       ] = await Promise.all([
         supabase.from('income_items').select('*').order('order'),
@@ -56,6 +61,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         supabase.from('transaction_items').select('*').order('category').order('order'),
         supabase.from('savings_items').select('*').order('order'),
         supabase.from('debt_items').select('*').order('order'),
+        supabase.from('large_expenses').select('*').order('order'),
         supabase.from('user_settings').select('*').limit(1),
       ]);
 
@@ -70,6 +76,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
           transactionItems: transactionItems ?? [],
           savingsItems: savingsItems ?? [],
           debtItems: debtItems ?? [],
+          largeExpenses: largeExpenses ?? [],
           userSettings: { 
             show_goals: settings.show_goals ?? true,
             card_payment_day: settings.card_payment_day ?? null
@@ -100,6 +107,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         { data: goals },
         { data: monthlySubBudgets },
         { data: monthlyBudgetItems },
+        { data: activeLargeExpenses },
       ] = await Promise.all([
         supabase.from('transactions').select('*')
           .gte('date', startDate)
@@ -117,9 +125,32 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         supabase.from('goals').select('*').eq('month', month).limit(1),
         supabase.from('monthly_sub_budgets').select('*').eq('month', month),
         supabase.from('monthly_budget_items').select('*').eq('month', month),
+        supabase.from('large_expenses').select('*')
+          .lte('start_date', endDate)
+          .gte('end_date', startDate)
+          .order('order'),
       ]);
 
       const goal = goals?.[0] ?? { id: '', month, title: '', content: '', order: 0 };
+      const activeLargeExpenseIds = (activeLargeExpenses ?? []).map((item) => item.id);
+      const { data: largeExpenseSubItems } = activeLargeExpenseIds.length > 0
+        ? await supabase.from('large_expense_sub_items').select('*')
+          .in('large_expense_id', activeLargeExpenseIds)
+          .order('large_expense_id')
+          .order('order')
+        : { data: [] };
+      const activeLargeExpenseSubItemIds = (largeExpenseSubItems ?? []).map((item) => item.id);
+      const { data: largeExpenseTransactionLinks } = activeLargeExpenseSubItemIds.length > 0
+        ? await supabase.from('large_expense_transaction_links').select('*')
+          .in('large_expense_sub_item_id', activeLargeExpenseSubItemIds)
+          .order('created_at')
+        : { data: [] };
+      const linkedTransactionIds = (largeExpenseTransactionLinks ?? []).map((link) => link.transaction_id);
+      const { data: largeExpenseLinkedTransactions } = linkedTransactionIds.length > 0
+        ? await supabase.from('transactions').select('*')
+          .in('id', linkedTransactionIds)
+          .order('date', { ascending: false })
+        : { data: [] };
 
       dispatch({
         type: 'LOAD_MONTHLY_DATA',
@@ -133,6 +164,10 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
           monthlyInstallments: monthlyInstallments ?? [],
           monthlySubBudgets: monthlySubBudgets ?? [],
           monthlyBudgetItems: monthlyBudgetItems ?? [],
+          largeExpenses: activeLargeExpenses ?? [],
+          largeExpenseSubItems: largeExpenseSubItems ?? [],
+          largeExpenseTransactionLinks: largeExpenseTransactionLinks ?? [],
+          largeExpenseLinkedTransactions: largeExpenseLinkedTransactions ?? [],
           goal,
         },
       });

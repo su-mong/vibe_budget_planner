@@ -74,6 +74,31 @@ export interface MonthlyInstallment {
   created_at?: string;
 }
 
+export interface LargeExpense {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  order: number;
+  created_at?: string;
+}
+
+export interface LargeExpenseSubItem {
+  id: string;
+  large_expense_id: string;
+  name: string;
+  budget_amount?: number;
+  order: number;
+  created_at?: string;
+}
+
+export interface LargeExpenseTransactionLink {
+  id: string;
+  large_expense_sub_item_id: string;
+  transaction_id: string;
+  created_at?: string;
+}
+
 export interface IncomeItem {
   id: string;
   name: string;
@@ -142,7 +167,7 @@ export interface UserSettings {
   card_payment_day?: number | null;
 }
 
-export type EditingSection = 'income' | 'expense' | 'savings' | 'debt' | 'extraIncome' | null;
+export type EditingSection = 'income' | 'expense' | 'savings' | 'debt' | 'extraIncome' | 'largeExpense' | null;
 
 export type ModalState =
   | { type: 'closed' }
@@ -167,6 +192,10 @@ export interface BudgetState {
   monthlyDebts: MonthlyDebt[];
   additionalIncomes: AdditionalIncome[];
   monthlyInstallments: MonthlyInstallment[];
+  largeExpenses: LargeExpense[];
+  largeExpenseSubItems: LargeExpenseSubItem[];
+  largeExpenseTransactionLinks: LargeExpenseTransactionLink[];
+  largeExpenseLinkedTransactions: Transaction[];
   monthlySubBudgets: MonthlySubBudget[];
   monthlyBudgetItems: MonthlyBudgetItem[];
   incomeItems: IncomeItem[];

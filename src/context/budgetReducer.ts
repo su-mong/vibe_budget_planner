@@ -2,8 +2,8 @@ import type {
   BudgetState, ViewId, Transaction, MonthlyIncome,
   MonthlySavings, MonthlyDebt, AdditionalIncome, MonthlyInstallment, MonthlySubBudget,
   MonthlyBudgetItem, IncomeItem, ExpenseSubItem, BudgetItem, TransactionItem,
-  SavingsItem, DebtItem, Goal, ModalState,
-  EditingSection, UserSettings, ExerciseRecord,
+  SavingsItem, DebtItem, Goal, ModalState, LargeExpense, LargeExpenseSubItem,
+  LargeExpenseTransactionLink, EditingSection, UserSettings, ExerciseRecord,
 } from '../types/budget';
 
 export type BudgetAction =
@@ -23,6 +23,7 @@ export type BudgetAction =
       transactionItems: TransactionItem[];
       savingsItems: SavingsItem[];
       debtItems: DebtItem[];
+      largeExpenses: LargeExpense[];
       userSettings: UserSettings;
     }}
   | { type: 'LOAD_MONTHLY_DATA'; payload: {
@@ -35,6 +36,10 @@ export type BudgetAction =
       monthlyInstallments: MonthlyInstallment[];
       monthlySubBudgets: MonthlySubBudget[];
       monthlyBudgetItems: MonthlyBudgetItem[];
+      largeExpenses: LargeExpense[];
+      largeExpenseSubItems: LargeExpenseSubItem[];
+      largeExpenseTransactionLinks: LargeExpenseTransactionLink[];
+      largeExpenseLinkedTransactions: Transaction[];
       goal: Goal;
     }}
   // Transactions
@@ -80,6 +85,8 @@ export type BudgetAction =
   | { type: 'SET_DEBT_ITEMS'; items: DebtItem[] }
   | { type: 'ADD_DEBT_ITEM'; item: DebtItem }
   | { type: 'DELETE_DEBT_ITEM'; id: string }
+  | { type: 'SET_LARGE_EXPENSES'; items: LargeExpense[] }
+  | { type: 'SET_LARGE_EXPENSE_SUB_ITEMS'; items: LargeExpenseSubItem[] }
   // Monthly Sub-Budgets
   | { type: 'SET_MONTHLY_SUB_BUDGETS'; month: string; subBudgets: MonthlySubBudget[] }
   // Monthly Budget Items
@@ -242,6 +249,10 @@ export function budgetReducer(state: BudgetState, action: BudgetAction): BudgetS
       return { ...state, debtItems: [...state.debtItems, action.item] };
     case 'DELETE_DEBT_ITEM':
       return { ...state, debtItems: state.debtItems.filter((i) => i.id !== action.id) };
+    case 'SET_LARGE_EXPENSES':
+      return { ...state, largeExpenses: action.items };
+    case 'SET_LARGE_EXPENSE_SUB_ITEMS':
+      return { ...state, largeExpenseSubItems: action.items };
 
     // Monthly Sub-Budgets
     case 'SET_MONTHLY_SUB_BUDGETS': {

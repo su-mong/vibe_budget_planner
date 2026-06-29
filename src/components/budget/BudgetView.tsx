@@ -5,6 +5,7 @@ import { ExpenseSection } from './ExpenseSection';
 import { SavingsSection } from './SavingsSection';
 import { DebtSection } from './DebtSection';
 import { ExtraIncomeSection } from './ExtraIncomeSection';
+import { LargeExpenseSection } from './LargeExpenseSection';
 import { AdditionalIncomeModal } from './AdditionalIncomeModal';
 import { useBudget } from '../../hooks/useBudget';
 import { getPrevMonth, getNextMonth } from '../../utils/format';
@@ -30,6 +31,7 @@ export function BudgetView() {
         <SavingsSection />
         <DebtSection />
         <ExtraIncomeSection />
+        <LargeExpenseSection />
       </div>
 
       {/* Additional income modal */}
