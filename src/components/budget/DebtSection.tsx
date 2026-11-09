@@ -41,6 +41,10 @@ export function DebtSection() {
     }
   }, [isEditing]);
 
+  const sortedDebtItems = [...state.debtItems].sort(
+    (a, b) => Number(!!a.is_finished) - Number(!!b.is_finished) || a.order - b.order
+  );
+
   const totalBudget = state.debtItems.reduce(
     (sum, item) => sum + (debtSummaryMap[item.id]?.budget || 0), 0
   );
@@ -130,12 +134,12 @@ export function DebtSection() {
 
       {/* Debt rows */}
       <div className="divide-y divide-[var(--border-default)]">
-        {state.debtItems.map((item) => {
+        {sortedDebtItems.map((item) => {
           const summary = debtSummaryMap[item.id] || { budget: 0, actual: 0 };
           const editingBudget = editValues[item.id] ?? summary.budget;
 
           return (
-            <div key={item.id} className="flex items-center justify-between py-2">
+            <div key={item.id} className={`flex items-center justify-between py-2 ${item.is_finished ? '[&_span]:text-gray-400 [&_span]:line-through [&_input]:text-gray-400 [&_input]:line-through' : ''}`}>
               <span className="flex-1 text-sm text-[var(--text-primary)]">{item.name}</span>
 
               {isEditing ? (

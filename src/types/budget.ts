@@ -135,6 +135,7 @@ export interface SavingsItem {
 }
 
 export interface DebtItem {
+  is_finished: boolean;
   id: string;
   name: string;
   order: number;

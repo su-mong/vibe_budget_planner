@@ -85,6 +85,7 @@ export type BudgetAction =
   | { type: 'DELETE_SAVINGS_ITEM'; id: string }
   | { type: 'SET_DEBT_ITEMS'; items: DebtItem[] }
   | { type: 'ADD_DEBT_ITEM'; item: DebtItem }
+  | { type: 'UPDATE_DEBT_ITEM'; item: DebtItem }
   | { type: 'DELETE_DEBT_ITEM'; id: string }
   | { type: 'SET_LARGE_EXPENSES'; items: LargeExpense[] }
   | { type: 'SET_LARGE_EXPENSE_SUB_ITEMS'; items: LargeExpenseSubItem[] }
@@ -254,6 +255,8 @@ export function budgetReducer(state: BudgetState, action: BudgetAction): BudgetS
       return { ...state, debtItems: action.items };
     case 'ADD_DEBT_ITEM':
       return { ...state, debtItems: [...state.debtItems, action.item] };
+    case 'UPDATE_DEBT_ITEM':
+      return { ...state, debtItems: state.debtItems.map(item => item.id === action.item.id ? action.item : item) };
     case 'DELETE_DEBT_ITEM':
       return { ...state, debtItems: state.debtItems.filter((i) => i.id !== action.id) };
     case 'SET_LARGE_EXPENSES':

@@ -78,6 +78,10 @@ export function TransactionModal() {
     if (entryType === 'expense') {
       return selectedCategory !== null && hasExpenseItem;
     }
+    if (entryType === 'debt') {
+      return debtItems.some(item => item.id === selectedItemId && !item.is_finished)
+        || (editing?.type === 'debt' && selectedItemId === editing.record.item_id);
+    }
     return selectedItemId !== '';
   }, [
     entryType,
@@ -87,6 +91,8 @@ export function TransactionModal() {
     selectedCategory,
     hasExpenseItem,
     selectedItemId,
+    debtItems,
+    editing,
   ]);
 
   const handleEntryTypeChange = (type: EntryType) => {
@@ -334,8 +340,16 @@ export function TransactionModal() {
             <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
               {entryType === 'savings' ? '저축 항목 선택' : '부채 항목 선택'}
             </h3>
+            {entryType === 'debt' && editing?.type === 'debt' && debtItems.some(item => item.id === selectedItemId && item.is_finished) && (
+              <p className="mb-2 text-sm text-gray-400">
+                {debtItems.find(item => item.id === selectedItemId)?.name} (상환 완료)
+              </p>
+            )}
+            {entryType === 'debt' && !debtItems.some(item => !item.is_finished) && !editing && (
+              <p className="text-sm text-[var(--text-secondary)]">상환 중인 부채 항목이 없습니다.</p>
+            )}
             <div className="flex flex-wrap gap-2">
-              {(entryType === 'savings' ? savingsItems : debtItems).map((item) => (
+              {(entryType === 'savings' ? savingsItems : debtItems.filter(item => !item.is_finished)).map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setSelectedItemId(item.id)}

@@ -34,6 +34,7 @@ export function AddDebtItemModal() {
         id: data.id,
         name: data.name,
         order: data.order,
+        is_finished: data.is_finished,
       };
 
       dispatch({ type: 'ADD_DEBT_ITEM', item });
