@@ -169,9 +169,14 @@ export interface UserSettings {
 
 export type EditingSection = 'income' | 'expense' | 'savings' | 'debt' | 'extraIncome' | 'largeExpense' | null;
 
+export type TransactionEditTarget =
+  | { type: 'expense'; record: Transaction }
+  | { type: 'savings'; record: MonthlySavings }
+  | { type: 'debt'; record: MonthlyDebt };
+
 export type ModalState =
   | { type: 'closed' }
-  | { type: 'transaction'; date: string }
+  | { type: 'transaction'; date: string; editing?: TransactionEditTarget }
   | { type: 'additionalIncome' }
   | { type: 'installment' }
   | { type: 'addIncomeItem' }

@@ -54,16 +54,19 @@ export function CalendarGrid() {
     const monthlyIncomeTotal = monthlyIncomes
       .filter((i) => i.month === currentMonth)
       .reduce((sum, i) => sum + i.amount, 0);
-    const additionalIncomeTotal = additionalIncomes
-      .filter((a) => a.month === currentMonth)
-      .reduce((sum, a) => sum + a.amount, 0);
-
-    if (monthlyIncomeTotal + additionalIncomeTotal > 0) {
-      incomeMap[firstDate] = monthlyIncomeTotal + additionalIncomeTotal;
+    if (monthlyIncomeTotal > 0) {
+      incomeMap[firstDate] = monthlyIncomeTotal;
     }
 
+    additionalIncomes.forEach((income) => {
+      const date = income.date || `${income.month}-01`;
+      if (date.startsWith(`${currentMonth}-`)) {
+        incomeMap[date] = (incomeMap[date] || 0) + income.amount;
+      }
+    });
+
     return { expenseMap, incomeMap };
-  }, [transactions, monthlyIncomes, additionalIncomes, currentMonth, year, month]);
+  }, [transactions, state.monthlyDebts, monthlyIncomes, additionalIncomes, currentMonth, year, month]);
 
   const exerciseRecordMap = useMemo(() => {
     return new Map(

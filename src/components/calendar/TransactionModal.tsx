@@ -23,13 +23,22 @@ export function TransactionModal() {
   const isOpen = modalState.type === 'transaction';
   const modalDate = isOpen ? modalState.date : '';
 
-  const [entryType, setEntryType] = useState<EntryType>('expense');
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [selectedTransactionItemId, setSelectedTransactionItemId] = useState<string>('');
-  const [selectedItemId, setSelectedItemId] = useState<string>('');
-  const [amount, setAmount] = useState<number>(0);
-  const [mealCount, setMealCount] = useState<number>(1);
-  const [memo, setMemo] = useState<string>('');
+  const editing = isOpen ? modalState.editing : undefined;
+  const originalExpense = editing?.type === 'expense' ? editing.record : undefined;
+  const originalTransactionItem = originalExpense
+    ? transactionItems.find(item => originalExpense.transaction_item_id
+      ? item.id === originalExpense.transaction_item_id
+      : item.category === originalExpense.category && item.name === originalExpense.sub_category)
+    : undefined;
+
+  const [entryType, setEntryType] = useState<EntryType>(editing?.type ?? 'expense');
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(originalExpense?.category ?? null);
+  const [selectedTransactionItemId, setSelectedTransactionItemId] = useState<string>(originalTransactionItem?.id ?? '');
+  const [selectedItemId, setSelectedItemId] = useState<string>(editing && editing.type !== 'expense' ? editing.record.item_id : '');
+  const [amount, setAmount] = useState<number>(editing ? editing.type === 'expense' ? editing.record.amount : editing.record.actual : 0);
+  const [mealCount, setMealCount] = useState<number>(originalExpense?.meal_count ?? 1);
+  const [memo, setMemo] = useState<string>(editing?.record.memo ?? '');
+  const [submitError, setSubmitError] = useState('');
   const [runningCompleted, setRunningCompleted] = useState(false);
   const [shouldRecordWeight, setShouldRecordWeight] = useState(false);
   const [bodyWeight, setBodyWeight] = useState('');
@@ -38,20 +47,24 @@ export function TransactionModal() {
   const filteredTransactionItems = useMemo(() => {
     if (!selectedCategory) return [];
     return transactionItems
-      .filter((item) => item.category === selectedCategory && item.is_active)
+      .filter((item) => item.category === selectedCategory && (item.is_active || item.id === originalTransactionItem?.id))
       .sort((a, b) => {
         if (a.name === '기타') return 1;
         if (b.name === '기타') return -1;
         return a.order - b.order;
       });
-  }, [transactionItems, selectedCategory]);
+  }, [transactionItems, selectedCategory, originalTransactionItem?.id]);
 
   const selectedTransactionItem = useMemo(
     () => transactionItems.find((item) => item.id === selectedTransactionItemId) ?? null,
     [transactionItems, selectedTransactionItemId],
   );
 
-  const isMealExpense = entryType === 'expense' && selectedTransactionItem?.name === '식비';
+  // Older records may no longer have a selectable transaction item.
+  const keepingOriginalExpense = !!originalExpense && !selectedTransactionItemId && selectedCategory === originalExpense.category;
+  const hasExpenseItem = selectedTransactionItem !== null || keepingOriginalExpense;
+
+  const isMealExpense = entryType === 'expense' && (selectedTransactionItem?.name ?? (keepingOriginalExpense ? originalExpense?.sub_category : undefined)) === '식비';
   const parsedBodyWeight = Number(bodyWeight);
   const hasValidBodyWeight =
     bodyWeight.trim() !== '' && Number.isFinite(parsedBodyWeight) && parsedBodyWeight > 0;
@@ -63,7 +76,7 @@ export function TransactionModal() {
 
     if (amount <= 0) return false;
     if (entryType === 'expense') {
-      return selectedCategory !== null && selectedTransactionItem !== null;
+      return selectedCategory !== null && hasExpenseItem;
     }
     return selectedItemId !== '';
   }, [
@@ -72,7 +85,7 @@ export function TransactionModal() {
     hasValidBodyWeight,
     amount,
     selectedCategory,
-    selectedTransactionItem,
+    hasExpenseItem,
     selectedItemId,
   ]);
 
@@ -120,12 +133,35 @@ export function TransactionModal() {
   const handleSubmit = async () => {
     if (!isValid || submitting) return;
     setSubmitting(true);
+    setSubmitError('');
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) throw new Error('로그인이 필요합니다.');
 
-      if (entryType === 'expense') {
+      if (editing) {
+        if (editing.type === 'expense') {
+          const { data, error } = await supabase.from('transactions')
+            .update({
+              transaction_item_id: selectedTransactionItem?.id ?? originalExpense?.transaction_item_id ?? null,
+              category: selectedTransactionItem?.category ?? originalExpense!.category,
+              sub_category: selectedTransactionItem?.name ?? originalExpense!.sub_category,
+              amount,
+              meal_count: isMealExpense ? mealCount : null,
+              memo: memo.trim() || null,
+            }).eq('id', editing.record.id).select().single();
+          if (error) throw error;
+          dispatch({ type: 'UPDATE_TRANSACTION', transaction: data });
+        } else {
+          const { data, error } = await supabase
+            .from(editing.type === 'savings' ? 'monthly_savings' : 'monthly_debts')
+            .update({ item_id: selectedItemId, actual: amount, memo: memo.trim() || null })
+            .eq('id', editing.record.id).select().single();
+          if (error) throw error;
+          if (editing.type === 'savings') dispatch({ type: 'UPSERT_MONTHLY_SAVINGS', savings: data });
+          else dispatch({ type: 'UPSERT_MONTHLY_DEBT', debt: data });
+        }
+      } else if (entryType === 'expense') {
         if (!selectedTransactionItem) return;
 
         const { data, error } = await supabase
@@ -216,23 +252,24 @@ export function TransactionModal() {
 
       handleClose();
     } catch (err) {
-      console.error('Failed to add transaction:', err);
+      console.error('Failed to save transaction:', err);
+      setSubmitError('저장하지 못했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal open={isOpen} onClose={handleClose} title="거래/운동 기록">
+    <Modal open={isOpen} onClose={handleClose} title={editing ? '거래 수정' : '거래/운동 기록'}>
       <div className="space-y-5">
         {/* Step 1 - Entry Type Selection */}
         <div>
           <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">유형 선택</h3>
           <div className="grid grid-cols-4 gap-2">
-            {ENTRY_TYPE_OPTIONS.map(({ type, label }) => (
+            {ENTRY_TYPE_OPTIONS.filter(option => !editing || option.type === editing.type).map(({ type, label }) => (
               <button
                 key={type}
-                onClick={() => handleEntryTypeChange(type)}
+                onClick={() => { if (!editing) handleEntryTypeChange(type); }}
                 className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
                   entryType === type
                     ? 'border-[var(--accent-blue)] bg-amber-50 font-medium text-[var(--accent-blue)]'
@@ -274,6 +311,7 @@ export function TransactionModal() {
                   세부 항목 선택
                 </h3>
                 <div className="flex flex-wrap gap-2">
+                  {keepingOriginalExpense && <span className="px-3 py-1.5 text-sm text-[var(--text-secondary)]">{originalExpense.sub_category} (기존 항목)</span>}
                   {filteredTransactionItems.map((item) => (
                     <button
                       key={item.id}
@@ -368,7 +406,7 @@ export function TransactionModal() {
         )}
 
         {/* Step 3 - Amount input */}
-        {((entryType === 'expense' && selectedCategory && selectedTransactionItem) || 
+        {((entryType === 'expense' && selectedCategory && hasExpenseItem) ||
           (entryType !== 'expense' && selectedItemId)) && (
           <div>
             <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
@@ -411,7 +449,7 @@ export function TransactionModal() {
         )}
 
         {/* Step 5 - Memo input */}
-        {((entryType === 'expense' && selectedCategory && selectedTransactionItem) || 
+        {((entryType === 'expense' && selectedCategory && hasExpenseItem) ||
           (entryType !== 'expense' && selectedItemId)) && (
           <div>
             <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">메모 입력</h3>
@@ -424,6 +462,8 @@ export function TransactionModal() {
             />
           </div>
         )}
+
+        {submitError && <p role="alert" className="text-sm text-[var(--status-negative)]">{submitError}</p>}
 
         {/* Action buttons */}
         <div className="flex items-center justify-end gap-2 pt-2">
@@ -438,7 +478,7 @@ export function TransactionModal() {
             disabled={!isValid || submitting}
             className="rounded-lg bg-[var(--accent-blue)] px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            확인
+            {submitting ? '저장 중...' : editing ? '저장' : '확인'}
           </button>
         </div>
       </div>

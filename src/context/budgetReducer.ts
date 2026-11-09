@@ -44,6 +44,7 @@ export type BudgetAction =
     }}
   // Transactions
   | { type: 'ADD_TRANSACTION'; transaction: Transaction }
+  | { type: 'UPDATE_TRANSACTION'; transaction: Transaction }
   | { type: 'DELETE_TRANSACTION'; id: string }
   // Exercise Records
   | { type: 'UPSERT_EXERCISE_RECORD'; record: ExerciseRecord }
@@ -122,6 +123,12 @@ export function budgetReducer(state: BudgetState, action: BudgetAction): BudgetS
     // Transactions
     case 'ADD_TRANSACTION':
       return { ...state, transactions: [...state.transactions, action.transaction] };
+    case 'UPDATE_TRANSACTION':
+      return {
+        ...state,
+        transactions: state.transactions.map(t => t.id === action.transaction.id ? action.transaction : t),
+        largeExpenseLinkedTransactions: state.largeExpenseLinkedTransactions.map(t => t.id === action.transaction.id ? action.transaction : t),
+      };
     case 'DELETE_TRANSACTION':
       return { ...state, transactions: state.transactions.filter((t) => t.id !== action.id) };
 

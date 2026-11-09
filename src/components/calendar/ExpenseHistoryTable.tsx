@@ -126,12 +126,11 @@ export function ExpenseHistoryTable() {
     if (!selectedDate) return 0;
     const [year, month] = currentMonth.split('-').map(Number);
     const firstDate = `${year}-${String(month).padStart(2, '0')}-01`;
-    if (selectedDate !== firstDate) return 0;
-    const monthlyTotal = monthlyIncomes
+    const monthlyTotal = selectedDate === firstDate ? monthlyIncomes
       .filter((i) => i.month === currentMonth)
-      .reduce((sum, i) => sum + i.amount, 0);
+      .reduce((sum, i) => sum + i.amount, 0) : 0;
     const additionalTotal = additionalIncomes
-      .filter((a) => a.month === currentMonth)
+      .filter((a) => (a.date || `${a.month}-01`) === selectedDate)
       .reduce((sum, a) => sum + a.amount, 0);
     return monthlyTotal + additionalTotal;
   }, [selectedDate, currentMonth, monthlyIncomes, additionalIncomes]);
@@ -411,7 +410,17 @@ export function ExpenseHistoryTable() {
         >
           <button
             onClick={() => {
-              // Edit not yet implemented for all types, focusing on delete first
+              if (openMenuType === 'expense') {
+                const record = transactions.find(item => item.id === openMenuId);
+                if (record) dispatch({ type: 'SET_MODAL', modal: { type: 'transaction', date: selectedDate, editing: { type: 'expense', record } } });
+              } else if (openMenuType === 'savings') {
+                const record = monthlySavings.find(item => item.id === openMenuId);
+                if (record) dispatch({ type: 'SET_MODAL', modal: { type: 'transaction', date: selectedDate, editing: { type: 'savings', record } } });
+              } else if (openMenuType === 'debt') {
+                const record = monthlyDebts.find(item => item.id === openMenuId);
+                if (record) dispatch({ type: 'SET_MODAL', modal: { type: 'transaction', date: selectedDate, editing: { type: 'debt', record } } });
+              }
+              setMenuPosition(null);
               setOpenMenuId(null);
               setOpenMenuType(null);
             }}
